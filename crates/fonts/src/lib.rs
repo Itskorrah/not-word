@@ -165,20 +165,18 @@ pub fn shape(face: &FontFace, text: &str, features: &[Feature], map: impl Fn(cha
 /// mark positioning. Glyphs come back in logical order like [`shape`]: clusters in text order,
 /// each cluster's glyphs in the shaper's (visual) order.
 pub fn shape_run(face: &FontFace, text: &str, features: &[Feature], map: impl Fn(char) -> char, rtl: bool) -> Vec<ShapedGlyph> {
-    let g = shape_dir(face, text, features, &map, rtl);
-    if !rtl {
-        return g;
+    let mut g = shape_dir(face, text, features, &map, rtl);
+    if rtl {
+        logical_cluster_order(&mut g);
     }
-    // Visual (clusters descending) → logical, cluster by cluster.
-    let mut groups: Vec<Vec<ShapedGlyph>> = Vec::new();
-    for x in g {
-        match groups.last_mut() {
-            Some(last) if last.first().is_some_and(|f| f.cluster == x.cluster) => last.push(x),
-            _ => groups.push(vec![x]),
-        }
-    }
-    groups.sort_by_key(|grp| grp.first().map_or(0, |f| f.cluster));
-    groups.into_iter().flatten().collect()
+    g
+}
+
+/// Keep glyphs within each cluster in visual order while putting clusters in text order.
+/// A stable sort also handles several script runs (each individually in visual order) without
+/// allocating a separate vector for every cluster. Marks in a cluster must never be reversed.
+fn logical_cluster_order(glyphs: &mut [ShapedGlyph]) {
+    glyphs.sort_by_key(|g| g.cluster);
 }
 
 fn shape_dir(face: &FontFace, text: &str, features: &[Feature], map: &impl Fn(char) -> char, rtl: bool) -> Vec<ShapedGlyph> {
@@ -226,6 +224,9 @@ fn shape_dir(face: &FontFace, text: &str, features: &[Feature], map: &impl Fn(ch
 pub fn first_glyph(face: &FontFace, chars: &[char]) -> u32 {
     chars.iter().map(|c| face.glyph_for(*c)).find(|g| *g != 0).unwrap_or(0)
 }
+
+#[cfg(test)]
+mod tests_rtl;
 
 #[cfg(test)]
 mod tests {

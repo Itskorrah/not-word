@@ -1506,23 +1506,27 @@ impl FontDb {
     }
 
     fn search_east_asian(&self, chars: &[char], exclude: u32, bold: bool, italic: bool) -> Option<Arc<FontFace>> {
-        let mut base = self.loaded_covering(chars, exclude);
+        let base = self.loaded_covering(chars, exclude);
         #[cfg(not(target_arch = "wasm32"))]
-        if base.is_none() {
-            // A character no loaded face covers: load a system font for it, then retry (the run's
-            // other characters may already be covered by loaded faces).
-            for c in chars {
-                if self.read_faces().iter().any(|f| f.id != exclude && f.covers(*c)) {
-                    continue;
-                }
-                if self.system_fallback(*c)
-                    && let Some(f) = self.loaded_covering(chars, exclude)
-                {
-                    base = Some(f);
-                    break;
+        let base = {
+            let mut base = base;
+            if base.is_none() {
+                // A character no loaded face covers: load a system font for it, then retry (the run's
+                // other characters may already be covered by loaded faces).
+                for c in chars {
+                    if self.read_faces().iter().any(|f| f.id != exclude && f.covers(*c)) {
+                        continue;
+                    }
+                    if self.system_fallback(*c)
+                        && let Some(f) = self.loaded_covering(chars, exclude)
+                    {
+                        base = Some(f);
+                        break;
+                    }
                 }
             }
-        }
+            base
+        };
         let base = base?;
         if !bold && !italic {
             return Some(base);

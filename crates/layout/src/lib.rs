@@ -492,6 +492,31 @@ fn hash_of<T: Hash>(t: &T) -> u64 {
     h.finish()
 }
 
+/// Repeated table-style regions share the same text formatting. Cache their paragraph-key
+/// digests for this layout pass, so even a paragraph-layout hit does not first allocate and
+/// format a complete `CellText` debug string for every cell. Content equality avoids tying the
+/// cache to temporary cell-formatting allocations whose addresses can be reused by another table.
+#[derive(Default)]
+struct TableTextKeys {
+    entries: Vec<(para::CellText, u64)>,
+}
+
+impl TableTextKeys {
+    const MAX_ENTRIES: usize = 64;
+
+    fn key(&mut self, text: &para::CellText) -> u64 {
+        if let Some((_, key)) = self.entries.iter().find(|(value, _)| value == text) {
+            return *key;
+        }
+        let key = hash_of(&format!("{text:?}"));
+        if self.entries.len() >= Self::MAX_ENTRIES {
+            self.entries.clear();
+        }
+        self.entries.push((text.clone(), key));
+        key
+    }
+}
+
 fn env_hash(doc: &Document, opts: &LayoutOptions) -> u64 {
     let s = serde_json::to_string(&(&doc.styles, &doc.numbering, doc.settings.default_tab, &doc.settings.footnote_format)).unwrap_or_default();
     // Outline view lays paragraphs out changed (no indents; plain without text formatting).
@@ -583,6 +608,7 @@ struct Ctx<'a> {
     counters: Counters,
     fields: FieldCtx,
     notes_hash: u64,
+    table_keys: TableTextKeys,
     numbers: HashMap<u32, Arc<ParaLayout>>,
     /// Automatic equation numbers so far.
     eq_count: u32,
@@ -695,7 +721,7 @@ impl Ctx<'_> {
             width: width.to_bits(),
             label: label.as_ref().map(|(t, l)| format!("{t}|{}|{}|{:?}|{:?}|{:?}|{:?}", l.indent, l.hanging, l.suffix, l.align, l.tab, l.chr)),
             page,
-            table: table.map(|t| hash_of(&format!("{t:?}"))).unwrap_or(0),
+            table: table.map(|t| self.table_keys.key(t)).unwrap_or(0),
             notes: if p.objects.iter().any(|o| matches!(o, InlineObject::NoteRef { .. })) { self.notes_hash } else { 0 },
             excl: if exclusions.is_empty() { 0 } else { hash_of(&format!("{exclusions:?}")) },
             eq: if eq_here > 0 { eq_number } else { 0 },
@@ -1779,6 +1805,7 @@ fn layout_pass(
             ..Default::default()
         },
         notes_hash,
+        table_keys: TableTextKeys::default(),
         numbers: HashMap::new(),
         eq_count: 0,
         boxes: wordcraft_doc::BoxBudget::default(),
@@ -3407,6 +3434,8 @@ mod tests_grid;
 mod tests_numeral;
 #[cfg(test)]
 mod tests_pages;
+#[cfg(test)]
+mod tests_perf;
 #[cfg(test)]
 mod tests_textbox;
 #[cfg(test)]
