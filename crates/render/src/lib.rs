@@ -42,6 +42,10 @@ pub struct Rendered {
 }
 
 impl Rendered {
+    fn valid_pixels(&self) -> bool {
+        self.width != 0 && self.height != 0 && rgba_len(self.width, self.height) == Some(self.pixels.len())
+    }
+
     pub fn to_straight(&self) -> Vec<u8> {
         let mut out = self.pixels.clone();
         for px in out.as_chunks_mut::<4>().0 {
@@ -56,8 +60,11 @@ impl Rendered {
     }
     /// PNG bytes (empty on failure, logged).
     pub fn to_png(&self) -> Vec<u8> {
-        let mut px = self.to_straight();
-        px.resize(self.width as usize * self.height as usize * 4, 0);
+        if !self.valid_pixels() {
+            log::error!("PNG encode: bad size {}×{}", self.width, self.height);
+            return Vec::new();
+        }
+        let px = self.to_straight();
         let Some(img) = image::RgbaImage::from_raw(self.width, self.height, px) else {
             log::error!("PNG encode: bad size {}×{}", self.width, self.height);
             return Vec::new();
@@ -70,6 +77,10 @@ impl Rendered {
         buf
     }
     pub fn to_jpeg(&self, quality: u8) -> Vec<u8> {
+        if !self.valid_pixels() {
+            log::error!("JPEG encode: bad size {}×{}", self.width, self.height);
+            return Vec::new();
+        }
         let rgba = self.to_straight();
         let rgb: Vec<u8> = rgba
             .as_chunks::<4>()
@@ -91,8 +102,12 @@ impl Rendered {
         if x >= self.width || y >= self.height {
             return [0; 4];
         }
-        let i = ((y as usize * self.width as usize) + x as usize) * 4;
-        let Some(p) = self.pixels.get(i..i + 4) else { return [0; 4] };
+        let Some(i) = (y as usize).checked_mul(self.width as usize).and_then(|row| row.checked_add(x as usize)).and_then(|px| px.checked_mul(4))
+        else {
+            return [0; 4];
+        };
+        let Some(end) = i.checked_add(4) else { return [0; 4] };
+        let Some(p) = self.pixels.get(i..end) else { return [0; 4] };
         let a = p[3] as u32;
         if a == 0 {
             return [0; 4];
@@ -100,6 +115,11 @@ impl Rendered {
         let un = |c: u8| ((c as u32 * 255 + a / 2) / a).min(255) as u8;
         [un(p[0]), un(p[1]), un(p[2]), p[3]]
     }
+}
+
+/// RGBA8 storage size, including on 32-bit native and wasm targets.
+fn rgba_len(w: u32, h: u32) -> Option<usize> {
+    (w as usize).checked_mul(h as usize)?.checked_mul(4)
 }
 
 fn color(c: Rgb, alpha: f32) -> peniko::Color {
@@ -168,7 +188,20 @@ fn vectors() -> &'static Mutex<MediaCache<Option<Arc<Vector>>>> {
 
 /// Decode an encoded image to a premultiplied pixmap.
 pub fn decode_pixmap(bytes: &[u8]) -> Option<Pixmap> {
-    let img = image::load_from_memory(bytes).ok()?.to_rgba8();
+    let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok()?;
+    let mut limits = image::Limits::default();
+    // Reject dimensions the pixmap cannot represent before decoding or converting the pixels.
+    limits.max_image_width = Some(u16::MAX as u32);
+    limits.max_image_height = Some(u16::MAX as u32);
+    reader.limits(limits.clone());
+    let (w, h) = reader.into_dimensions().ok()?;
+    // Grayscale and indexed images can grow when converted to RGBA; that conversion must obey
+    // the same allocation budget as the decoder's native output, rather than bypassing it.
+    let rgba_bytes = u64::try_from(rgba_len(w, h)?).ok()?;
+    limits.clone().reserve(rgba_bytes).ok()?;
+    // This immutable byte slice was preflighted above. The library's non-generic entry point
+    // keeps its optimized decoder implementation and checks the native pixel allocation budget.
+    let img = image::load_from_memory(bytes).ok()?.into_rgba8();
     let (w, h) = img.dimensions();
     premul_pixmap(w, h, img.as_raw())
 }
@@ -179,7 +212,7 @@ fn premul_pixmap(w: u32, h: u32, rgba: &[u8]) -> Option<Pixmap> {
     if w == 0 || h == 0 || w > u16::MAX as u32 || h > u16::MAX as u32 {
         return None;
     }
-    if rgba.len() != (w as usize * h as usize).saturating_mul(4) {
+    if rgba_len(w, h) != Some(rgba.len()) {
         return None;
     }
     let data: Vec<vello_cpu::color::PremulRgba8> = rgba

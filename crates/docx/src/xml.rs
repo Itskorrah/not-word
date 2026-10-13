@@ -2,12 +2,14 @@
 //!
 //! Element and attribute names are rewritten to *canonical prefixes* by namespace URI (`w:p`,
 //! `r:id`, `a:blip`…), so the reader doesn't care which prefixes a producer chose. Names in
-//! unknown namespaces keep their local name behind a `?:` prefix.
+//! unknown namespaces keep explicit local declarations, so opaque extension markup survives
+//! re-emission without being mistaken for a supported vocabulary.
 
 use quick_xml::XmlVersion;
 use quick_xml::events::Event;
 use quick_xml::name::{QName, ResolveResult};
 use quick_xml::reader::NsReader;
+use std::sync::Arc;
 
 use crate::DocxError;
 
@@ -15,6 +17,9 @@ use crate::DocxError;
 pub const MAX_DEPTH: usize = 256;
 /// Maximum number of elements in one part.
 pub const MAX_ELEMENTS: usize = 8_000_000;
+/// Bound amplification when a long inherited namespace URI must be stored on many subtrees.
+const MAX_NAMESPACE_URI: usize = 4096;
+const MAX_PRESERVED_NAMESPACES: usize = 8 * 1024 * 1024;
 
 /// Known namespaces and the canonical prefix we use for them (read and write).
 pub const NAMESPACES: &[(&str, &str)] = &[
@@ -82,6 +87,25 @@ fn prefix_for(uri: &[u8], extra: &[(&'static str, &str)]) -> &'static str {
     "?"
 }
 
+/// Canonicalize known namespaces; give unknown ones a locally declared prefix. Each element
+/// carries the declarations it needs, including when extracted from its original parent.
+fn qualified_name(uri: &[u8], local: &str, extra: &[(&'static str, &str)], declarations: &mut Vec<(String, String)>) -> Result<String, DocxError> {
+    let known = prefix_for(uri, extra);
+    if known != "?" {
+        return Ok(format!("{known}:{local}"));
+    }
+    if uri.len() > MAX_NAMESPACE_URI {
+        return Err(DocxError::Limit("namespace URI is too long to preserve".into()));
+    }
+    if let Some((prefix, _)) = declarations.iter().find(|(_, namespace)| namespace.as_bytes() == uri) {
+        return Ok(format!("{prefix}:{local}"));
+    }
+    let prefix = format!("nw{}", declarations.len());
+    let name = format!("{prefix}:{local}");
+    declarations.push((prefix, String::from_utf8_lossy(uri).into_owned()));
+    Ok(name)
+}
+
 /// Compatibility feature namespaces whose elements are not otherwise handled by this tree.
 /// Keep the reader's existing feature set when canonicalizing `mc:Choice/@Requires` aliases.
 fn requirement_prefix(uri: &[u8]) -> &'static str {
@@ -98,6 +122,89 @@ fn requirement_prefix(uri: &[u8]) -> &'static str {
         b"http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" => "w16sdtdh",
         _ => "?",
     }
+}
+
+const MC_NS: &str = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+/// MC lists are normally a handful of features. Bound both local lists and inherited policies.
+const MAX_MC_NAMES: usize = 128;
+
+/// Rewrite MC namespace-prefix/QName lists while the source bindings are in scope. Unknown
+/// requirements retain a declared prefix, which remains outside the reader's understood set.
+fn mce_list(
+    value: &str,
+    reader: &NsReader<&[u8]>,
+    extra: &[(&'static str, &str)],
+    declarations: &mut Vec<(String, String)>,
+    ignorable: &mut Vec<Arc<str>>,
+    attribute: &str,
+) -> Result<String, DocxError> {
+    let tokens: Vec<_> = value.split_whitespace().take(MAX_MC_NAMES + 1).collect();
+    if tokens.len() > MAX_MC_NAMES || tokens.iter().any(|p| p.len() > 1024) {
+        return Err(DocxError::Limit("too many or oversized markup compatibility names".into()));
+    }
+    let qnames = matches!(attribute, "mc:PreserveElements" | "mc:PreserveAttributes" | "mc:ProcessContent");
+    let mut output = Vec::with_capacity(tokens.len());
+    for token in tokens {
+        let (prefix, local) = if qnames {
+            let Some(pair) = token.split_once(':') else {
+                output.push(token.to_string());
+                continue;
+            };
+            pair
+        } else {
+            (token, "requirement")
+        };
+        let qualified = format!("{prefix}:{local}");
+        let ResolveResult::Bound(namespace) = reader.resolver().resolve_attribute(QName(qualified.as_bytes())).0 else {
+            // Preserve the reader's fallback for a malformed, undeclared requirement.
+            output.push("?".into());
+            continue;
+        };
+        let uri = namespace.as_ref();
+        if uri.len() > MAX_NAMESPACE_URI {
+            return Err(DocxError::Limit("namespace URI is too long to preserve".into()));
+        }
+        if attribute == "mc:Ignorable" && prefix_for(uri, extra) == "?" && !ignorable.iter().any(|n| n.as_bytes() == uri) {
+            if ignorable.len() >= MAX_MC_NAMES {
+                return Err(DocxError::Limit("too many inherited ignorable namespaces".into()));
+            }
+            ignorable.push(Arc::from(String::from_utf8_lossy(uri).as_ref()));
+        }
+        let name = if attribute == "Requires" && requirement_prefix(uri) != "?" {
+            let canonical = requirement_prefix(uri);
+            if prefix_for(uri, extra) == "?" && !declarations.iter().any(|(p, _)| p == canonical) {
+                declarations.push((canonical.to_string(), String::from_utf8_lossy(uri).into_owned()));
+            }
+            format!("{canonical}:{local}")
+        } else {
+            qualified_name(uri, local, extra, declarations)?
+        };
+        output.push(if qnames { name } else { name.rsplit_once(':').map_or(name.clone(), |(p, _)| p.to_string()) });
+    }
+    Ok(output.join(" "))
+}
+
+/// An extracted extension subtree must retain its source's inherited ignorable policy. Apply
+/// it to the locally declared foreign namespaces, rather than adding a blanket ignore policy.
+fn localize_ignorable(el: &mut El, declarations: &mut Vec<(String, String)>, policy: &[Arc<str>]) {
+    let prefixes: Vec<_> = declarations.iter().filter(|(_, uri)| policy.iter().any(|n| n.as_ref() == uri)).map(|(p, _)| p.clone()).collect();
+    if prefixes.is_empty() {
+        return;
+    }
+    if let Some((_, value)) = el.attrs.iter_mut().find(|(name, _)| name == "mc:Ignorable") {
+        for prefix in prefixes {
+            if !value.split_whitespace().any(|p| p == prefix) {
+                if !value.is_empty() {
+                    value.push(' ');
+                }
+                value.push_str(&prefix);
+            }
+        }
+    } else {
+        el.attrs.push(("mc:Ignorable".into(), prefixes.join(" ")));
+    }
+    // Kept fragments can also be emitted or parsed outside a document's body namespaces.
+    declarations.push(("mc".into(), MC_NS.into()));
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -189,8 +296,8 @@ impl El {
         }
         go(self, name, 0)
     }
-    /// The element as XML with canonical prefixes (for re-emitting kept content). Elements and
-    /// attributes in unknown namespaces are dropped.
+    /// The element as XML with canonical prefixes (for re-emitting kept content). Unknown
+    /// namespaces carry their own declarations; unsupported markup is kept without evaluation.
     pub fn to_xml(&self) -> String {
         fn go(e: &El, s: &mut String, depth: usize) {
             if depth > MAX_DEPTH || e.name.starts_with("?:") {
@@ -268,16 +375,14 @@ pub fn parse_ns(bytes: &[u8], extra: &[(&'static str, &str)]) -> Result<El, Docx
         c.check_end_names = false;
     }
     let mut stack: Vec<El> = Vec::new();
+    let mut ignorable_stack: Vec<Vec<Arc<str>>> = Vec::new();
     let mut root: Option<El> = None;
     let mut count = 0usize;
+    let mut namespace_bytes = 0usize;
     let mut buf = Vec::new();
     loop {
         buf.clear();
         let (res, ev) = r.read_resolved_event_into(&mut buf).map_err(|e| DocxError::Xml(e.to_string()))?;
-        let el_prefix = match &res {
-            ResolveResult::Bound(ns) => Some(prefix_for(ns.as_ref(), extra)),
-            _ => None,
-        };
         match ev {
             Event::Start(ref e) | Event::Empty(ref e) => {
                 count += 1;
@@ -285,11 +390,13 @@ pub fn parse_ns(bytes: &[u8], extra: &[(&'static str, &str)]) -> Result<El, Docx
                     return Err(DocxError::Limit("too many XML elements".into()));
                 }
                 let local = String::from_utf8_lossy(e.local_name().as_ref()).into_owned();
-                let name = match el_prefix {
-                    Some(p) => format!("{p}:{local}"),
-                    None => local,
+                let mut declarations = Vec::new();
+                let name = match res {
+                    ResolveResult::Bound(ns) => qualified_name(ns.as_ref(), &local, extra, &mut declarations)?,
+                    _ => local,
                 };
                 let mut el = El { name, attrs: Vec::new(), kids: Vec::new() };
+                let mut ignorable = ignorable_stack.last().cloned().unwrap_or_default();
                 for a in e.attributes().with_checks(false) {
                     let Ok(a) = a else { continue };
                     let key = a.key;
@@ -300,47 +407,43 @@ pub fn parse_ns(bytes: &[u8], extra: &[(&'static str, &str)]) -> Result<El, Docx
                     let (ares, alocal) = r.resolver_mut().resolve_attribute(key);
                     let alocal = String::from_utf8_lossy(alocal.as_ref()).into_owned();
                     let aname = match ares {
-                        ResolveResult::Bound(ns) => format!("{}:{alocal}", prefix_for(ns.as_ref(), extra)),
+                        ResolveResult::Bound(ns) => qualified_name(ns.as_ref(), &alocal, extra, &mut declarations)?,
                         _ => alocal,
                     };
                     let val = match a.normalized_value(XmlVersion::Explicit1_0) {
                         Ok(v) => v.into_owned(),
                         Err(_) => String::from_utf8_lossy(&a.value).into_owned(),
                     };
-                    // Requires contains namespace prefixes, not feature names. Resolve them while
-                    // the namespace scope still exists; declarations are omitted from this tree.
-                    let val = if el.name == "mc:Choice" && aname == "Requires" {
-                        let requirements: Vec<_> = val.split_whitespace().take(65).collect();
-                        if requirements.len() > 64 || requirements.iter().any(|prefix| prefix.len() > 128) {
-                            "?".to_string()
-                        } else {
-                            requirements
-                                .into_iter()
-                                .map(|prefix| {
-                                    let qualified = format!("{prefix}:requirement");
-                                    match r.resolver_mut().resolve_attribute(QName(qualified.as_bytes())).0 {
-                                        ResolveResult::Bound(ns) => requirement_prefix(ns.as_ref()),
-                                        _ => "?",
-                                    }
-                                })
-                                .collect::<Vec<_>>()
-                                .join(" ")
-                        }
+                    let val = if (el.name == "mc:Choice" && aname == "Requires")
+                        || matches!(
+                            aname.as_str(),
+                            "mc:Ignorable" | "mc:MustUnderstand" | "mc:PreserveElements" | "mc:PreserveAttributes" | "mc:ProcessContent"
+                        ) {
+                        mce_list(&val, &r, extra, &mut declarations, &mut ignorable, &aname)?
                     } else {
                         val
                     };
                     el.attrs.push((aname, val));
                 }
+                localize_ignorable(&mut el, &mut declarations, &ignorable);
+                namespace_bytes =
+                    namespace_bytes.saturating_add(declarations.iter().map(|(prefix, namespace)| prefix.len() + namespace.len()).sum::<usize>());
+                if namespace_bytes > MAX_PRESERVED_NAMESPACES {
+                    return Err(DocxError::Limit("too much preserved namespace data".into()));
+                }
+                el.attrs.extend(declarations.into_iter().map(|(prefix, namespace)| (format!("xmlns:{prefix}"), namespace)));
                 if matches!(ev, Event::Start(_)) {
                     if stack.len() >= MAX_DEPTH {
                         return Err(DocxError::Limit("XML nesting too deep".into()));
                     }
+                    ignorable_stack.push(ignorable);
                     stack.push(el);
                 } else {
                     attach(&mut stack, &mut root, el);
                 }
             }
             Event::End(_) => {
+                ignorable_stack.pop();
                 if let Some(el) = stack.pop() {
                     attach(&mut stack, &mut root, el);
                 }
@@ -535,7 +638,75 @@ mod tests {
         let x = br#"<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:pen="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"><mc:Choice Requires="pen"/><mc:Choice xmlns:pen="urn:future" Requires="pen"/><mc:Choice Requires="undeclared"/></mc:AlternateContent>"#;
         let e = parse(x).unwrap();
         let values: Vec<_> = e.children("mc:Choice").map(|c| c.attr("Requires")).collect();
-        assert_eq!(values, [Some("wpi"), Some("?"), Some("?")]);
+        assert_eq!(values, [Some("wpi"), Some("nw0"), Some("?")]);
+        let foreign = e.children("mc:Choice").nth(1).unwrap();
+        assert!(foreign.to_xml().contains("xmlns:nw0=\"urn:future\""));
+    }
+
+    #[test]
+    fn inherited_ignorable_policy_survives_subtree_extraction_and_prefix_rebinding() {
+        let root = parse(br#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:v="urn:not-word:test:vendor" mc:Ignorable="v"><v:extension v:flag="keep"><v:child/><v:child xmlns:v="urn:not-word:test:required"/></v:extension></w:document>"#).unwrap();
+        let extension = root.els().next().unwrap();
+        assert_eq!(extension.attr("mc:Ignorable"), Some("nw0"));
+        let children: Vec<_> = extension.els().collect();
+        assert_eq!(children[0].attr("mc:Ignorable"), Some("nw0"));
+        assert_eq!(children[1].attr("mc:Ignorable"), None, "a rebound URI does not inherit the old URI's policy");
+        let xml = extension.to_xml();
+        assert!(xml.contains("xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\""));
+        assert_eq!(parse(xml.as_bytes()).unwrap(), *extension);
+    }
+
+    #[test]
+    fn compatibility_qname_lists_and_feature_requirements_use_declared_prefixes() {
+        let root = parse(br#"<mc:Choice xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:v="urn:not-word:test:vendor" xmlns:feature="http://schemas.microsoft.com/office/drawing/2010/main" Requires="v feature" mc:Ignorable="v" mc:PreserveElements="v:item v:*" mc:PreserveAttributes="v:flag" mc:ProcessContent="v:wrapper"/>"#).unwrap();
+        assert_eq!(root.attr("Requires"), Some("nw0 a14"));
+        assert_eq!(root.attr("mc:PreserveElements"), Some("nw0:item nw0:*"));
+        assert_eq!(root.attr("mc:PreserveAttributes"), Some("nw0:flag"));
+        assert_eq!(root.attr("mc:ProcessContent"), Some("nw0:wrapper"));
+        let xml = root.to_xml();
+        assert!(xml.contains("xmlns:a14=\"http://schemas.microsoft.com/office/drawing/2010/main\""));
+        assert_eq!(parse(xml.as_bytes()).unwrap(), root);
+    }
+
+    #[test]
+    fn excessive_compatibility_lists_are_bounded() {
+        let names = "v ".repeat(MAX_MC_NAMES + 1);
+        let xml = format!("<a xmlns:mc=\"{MC_NS}\" xmlns:v=\"urn:vendor\" mc:Ignorable=\"{names}\"/>");
+        assert!(matches!(parse(xml.as_bytes()), Err(DocxError::Limit(_))));
+    }
+
+    #[test]
+    fn inherited_foreign_namespace_storage_is_bounded() {
+        let too_long = format!("<v:root xmlns:v=\"urn:{}\"/>", "x".repeat(MAX_NAMESPACE_URI));
+        assert!(matches!(parse(too_long.as_bytes()), Err(DocxError::Limit(_))));
+        let namespace = format!("urn:{}", "x".repeat(MAX_NAMESPACE_URI - 4));
+        let nodes = "<v:child/>".repeat(MAX_PRESERVED_NAMESPACES / MAX_NAMESPACE_URI + 1);
+        let amplified = format!("<v:root xmlns:v=\"{namespace}\">{nodes}</v:root>");
+        assert!(amplified.len() < 64 * 1024, "the source itself is small");
+        assert!(matches!(parse(amplified.as_bytes()), Err(DocxError::Limit(_))));
+    }
+
+    #[test]
+    fn unknown_namespaces_preserve_elements_attributes_and_rebindings() {
+        let source = br#"<vendor:extension xmlns:vendor="urn:not-word:test:vendor" xmlns:other="urn:not-word:test:other" vendor:flag="keep" other:value="distinct"><vendor:data>opaque &amp; safe</vendor:data><vendor:data xmlns:vendor="urn:not-word:test:rebound" vendor:flag="second"/></vendor:extension>"#;
+        let original = parse(source).unwrap();
+        let serialized = original.to_xml();
+        assert!(serialized.contains("urn:not-word:test:vendor"));
+        assert!(serialized.contains("urn:not-word:test:other"));
+        assert!(serialized.contains("urn:not-word:test:rebound"));
+        assert!(serialized.contains("opaque &amp; safe"));
+        assert_eq!(parse(serialized.as_bytes()).unwrap(), original);
+        // A subtree also keeps the namespace inherited from the source's root.
+        let child = original.els().next().unwrap();
+        assert_eq!(parse(child.to_xml().as_bytes()).unwrap(), *child);
+    }
+
+    #[test]
+    fn foreign_attributes_do_not_become_wordprocessingml_attributes() {
+        let root = parse(br#"<w:color xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:future="urn:not-word:future" w:val="112233" future:val="keep"/>"#).unwrap();
+        assert_eq!(root.attr("w:val"), Some("112233"));
+        assert_eq!(root.attr("nw0:val"), Some("keep"));
+        assert!(root.to_xml().contains("urn:not-word:future"));
     }
 
     #[test]

@@ -23,8 +23,8 @@ pub(crate) const MAX_MEDIA_BYTES: usize = 256 << 20;
 /// thousands of anchors on one huge picture costs one copy, not thousands. Pictures of the
 /// drawing layer's BLIP store are shared the same way, by store index.
 pub(crate) struct Pictures {
-    /// fc_pic → the inline picture already materialised.
-    by_fc: HashMap<u32, Inline>,
+    /// fc_pic → the inline picture already materialised (`None`: unreadable, not retried).
+    by_fc: HashMap<u32, Option<Inline>>,
     /// BLIP store index → media key (`None`: unreadable, not retried).
     by_bse: HashMap<u32, Option<String>>,
     /// The media entries, merged into the document at the end.
@@ -68,14 +68,23 @@ impl Pictures {
     /// count/byte cap is reached.
     pub(crate) fn get(&mut self, data: &[u8], fc_pic: u32) -> Option<Inline> {
         if let Some(hit) = self.by_fc.get(&fc_pic) {
-            return Some(hit.clone());
+            return hit.clone();
         }
         if self.by_fc.len().saturating_add(self.by_bse.len()) >= MAX_PICTURES {
             return None;
         }
-        let pic = match locate(data, fc_pic)? {
+        let room = self.limit.saturating_sub(self.total);
+        let pic = self.materialize(data, fc_pic, room);
+        // Failed decoding and budget rejections are stable for this document: the available
+        // room can only shrink. Cache them so repeated anchors cannot repeat costly work.
+        self.by_fc.insert(fc_pic, pic.clone());
+        pic
+    }
+
+    fn materialize(&mut self, data: &[u8], fc_pic: u32, room: usize) -> Option<Inline> {
+        let pic = match locate(data, fc_pic, room)? {
             Found::Range(pic) => {
-                let bytes = data.get(pic.range.clone())?.to_vec();
+                let bytes = data.get(pic.range)?.to_vec();
                 let key = self.insert(bytes, pic.ext, false)?;
                 Inline { key, w: pic.w, h: pic.h, crop: [0.0; 4], alt: String::new() }
             }
@@ -84,7 +93,6 @@ impl Pictures {
                 Inline { key, w, h, crop: props.crop, alt: props.alt }
             }
         };
-        self.by_fc.insert(fc_pic, pic.clone());
         Some(pic)
     }
 
@@ -110,7 +118,7 @@ impl Pictures {
         let key = format!("image{}.{ext}", self.media.len() + 1);
         if placeholder {
             if self.placeholders < 10 {
-                log::warn!("docbin: picture `{key}` is in a format WordCraft can't draw ({ext}); it shows as a placeholder");
+                log::warn!("docbin: picture `{key}` is in a format Not Word can't draw ({ext}); it shows as a placeholder");
             }
             self.placeholders = self.placeholders.saturating_add(1);
         }
@@ -149,7 +157,7 @@ const MM_SHAPE: u16 = 0x0064;
 const MM_SHAPEFILE: u16 = 0x0066;
 
 /// Locate the picture at `fc_pic` in the Data stream ([MS-DOC] §2.9.192 PICFAndOfficeArtData).
-fn locate(data: &[u8], fc_pic: u32) -> Option<Found> {
+fn locate(data: &[u8], fc_pic: u32, limit: usize) -> Option<Found> {
     let base = fc_pic as usize;
     let pic = data.get(base..)?;
     let lcb = u32::from_le_bytes(pic.get(0..4)?.try_into().ok()?) as usize;
@@ -168,7 +176,7 @@ fn locate(data: &[u8], fc_pic: u32) -> Option<Found> {
         if mm == MM_SHAPEFILE {
             at = at.checked_add(1 + *pic.get(at)? as usize)?;
         }
-        let (blip, props) = inline_shape(pic.get(at..end)?, data)?;
+        let (blip, props) = inline_shape(pic.get(at..end)?, data, limit)?;
         // The goal size is before cropping; the crop fractions take their share off it.
         let [cl, ct, cr, cb] = props.crop;
         let w = (dxa_goal / 20.0 * (1.0 - cl - cr).max(0.01) * scale(mx)).clamp(1.0, 1584.0);
@@ -180,19 +188,22 @@ fn locate(data: &[u8], fc_pic: u32) -> Option<Found> {
     let body = pic.get(cb_header..end)?;
     let at = sniff(body)?;
     let image = body.get(at..)?;
+    if image.len() > limit {
+        return None;
+    }
     let start = base.checked_add(cb_header)?.checked_add(at)?;
     Some(Found::Range(Located { w, h, range: start..start.checked_add(image.len())?, ext: ext_of(image) }))
 }
 
 /// An `OfficeArtInlineSpContainer`: the picture shape, then the `OfficeArtFBSE` records its
 /// `pib` indexes (BLIPs embedded, or at `foDelay` in the Data stream).
-fn inline_shape(buf: &[u8], data: &[u8]) -> Option<(officeart::Blip, officeart::Props)> {
+fn inline_shape(buf: &[u8], data: &[u8], limit: usize) -> Option<(officeart::Blip, officeart::Props)> {
     let mut budget = 10_000usize;
     let recs = officeart::children(buf, &mut budget);
     let sp = recs.iter().find(|r| r.typ == officeart::rt::SP_CONTAINER).map(|r| officeart::shape(r.body, &mut budget))?;
     let fbses: Vec<&[u8]> = recs.iter().filter(|r| r.typ == officeart::rt::FBSE).map(|r| r.body).collect();
     let fbse = sp.props.pib.and_then(|p| fbses.get((p as usize).checked_sub(1)?)).or(fbses.first())?;
-    let blip = officeart::fbse_blip(fbse, data, MAX_MEDIA_BYTES)?;
+    let blip = officeart::fbse_blip(fbse, data, limit)?;
     Some((blip, sp.props))
 }
 
@@ -218,5 +229,53 @@ fn ext_of(b: &[u8]) -> &'static str {
         "gif"
     } else {
         "bmp"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn picture(payload_size: usize) -> Vec<u8> {
+        let mut bytes = vec![0u8; CB_HEADER];
+        bytes[..4].copy_from_slice(&((CB_HEADER + payload_size) as u32).to_le_bytes());
+        bytes[4..6].copy_from_slice(&(CB_HEADER as u16).to_le_bytes());
+        bytes.extend_from_slice(b"\x89PNG\r\n\x1a\n");
+        bytes.resize(CB_HEADER + payload_size, 0);
+        bytes
+    }
+
+    #[test]
+    fn raw_picture_budget_is_checked_before_materialization() {
+        let data = picture(1024);
+        assert!(locate(&data, 0, 1023).is_none());
+        assert!(matches!(locate(&data, 0, 1024), Some(Found::Range(_))));
+
+        let mut pictures = Pictures { limit: 1023, ..Default::default() };
+        assert!(pictures.get(&data, 0).is_none());
+        assert!(pictures.media.is_empty());
+        assert_eq!(pictures.total, 0);
+        assert!(pictures.by_fc.get(&0).is_some_and(Option::is_none));
+    }
+
+    #[test]
+    fn invalid_inline_location_is_cached_and_not_decoded_again() {
+        let mut pictures = Pictures::default();
+        assert!(pictures.get(&[], 0).is_none());
+        assert!(pictures.by_fc.get(&0).is_some_and(Option::is_none));
+        // In production the Data stream is immutable. Replacing it here establishes that
+        // a second lookup returns the cached failure instead of decoding again.
+        assert!(pictures.get(&picture(64), 0).is_none());
+        assert!(pictures.media.is_empty());
+        assert_eq!(pictures.by_fc.len(), 1);
+    }
+
+    #[test]
+    fn failed_inline_locations_also_obey_the_picture_count_cap() {
+        let mut pictures = Pictures::default();
+        for fc in 0..MAX_PICTURES + 10 {
+            assert!(pictures.get(&[], fc as u32).is_none());
+        }
+        assert_eq!(pictures.by_fc.len(), MAX_PICTURES);
     }
 }

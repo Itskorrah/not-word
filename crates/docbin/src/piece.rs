@@ -148,7 +148,7 @@ impl PieceTable {
     /// inverted piece, or piece bytes past the end of the stream): `next` is the CP to
     /// resume at, always greater than `cp` (`u32::MAX` past the last piece), so callers
     /// skip an unreadable range in one step instead of one CP at a time.
-    pub(crate) fn char_at(&self, word: &[u8], cp: u32) -> Result<(char, u32), u32> {
+    pub(crate) fn char_at(&self, word: &[u8], cp: u32, cp_end: u32) -> Result<(char, u32), u32> {
         let i = self.cps.partition_point(|&c| c <= cp);
         // The next piece boundary above `cp`, or the end of the CP space.
         let next = self.cps.get(i).copied().filter(|&n| n > cp).unwrap_or(u32::MAX);
@@ -171,13 +171,25 @@ impl PieceTable {
         };
         let Some(u) = unit(off) else { return Err(next) };
         if (0xD800..0xDC00).contains(&u)
-            && cp.saturating_add(1) < next
-            && let Some(lo) = unit(off.saturating_add(1)).filter(|lo| (0xDC00..0xE000).contains(lo))
+            && let Some(next_cp) = cp.checked_add(1).filter(|&n| n < cp_end.min(self.cp_end()))
+            && let Some(lo) = self.utf16_unit_at(word, next_cp).filter(|lo| (0xDC00..0xE000).contains(lo))
             && let Some(Ok(c)) = char::decode_utf16([u, lo]).next()
         {
             return Ok((c, 2));
         }
         Ok((char::from_u32(u as u32).unwrap_or('\u{FFFD}'), 1))
+    }
+
+    /// UTF-16 code unit at a logical CP, including across non-contiguous text pieces.
+    /// Word counts surrogate halves as separate CPs; an editing boundary may split the pair.
+    fn utf16_unit_at(&self, word: &[u8], cp: u32) -> Option<u16> {
+        let p = self.piece_of(cp)?;
+        if p.compressed {
+            return None;
+        }
+        let at = self.fc_of_cp(cp)? as usize;
+        let bytes = word.get(at..at.checked_add(2)?)?;
+        Some(u16::from_le_bytes([*bytes.first()?, *bytes.get(1)?]))
     }
 }
 

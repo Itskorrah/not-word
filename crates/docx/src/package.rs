@@ -1,6 +1,6 @@
 //! OPC package access: bounded zip reading, relationships, part names.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{Cursor, Read, Write};
 
 use crate::DocxError;
@@ -150,31 +150,29 @@ impl Package {
         if zip.len() > MAX_ENTRIES {
             return Err(DocxError::Limit(format!("{} zip entries", zip.len())));
         }
+        check_directory_entries(bytes, zip.central_directory_start(), zip.len())?;
         let mut files = BTreeMap::new();
+        let mut names = HashSet::new();
         let mut total: u64 = 0;
         for i in 0..zip.len() {
-            let mut f = match zip.by_index(i) {
-                Ok(f) => f,
-                Err(e) => {
-                    log::warn!("docx: skipping unreadable zip entry {i}: {e}");
-                    continue;
-                }
-            };
+            // Skipping an unreadable part makes a later save silently discard it. Fail before
+            // returning an editable document; callers can keep the original file intact.
+            let mut f = zip.by_index(i).map_err(|e| DocxError::Zip(format!("entry {i}: {e}")))?;
             if f.is_dir() {
                 continue;
             }
             let name = f.name().trim_start_matches('/').to_string();
+            // OPC part names are compared without ASCII case distinctions. Ambiguous parts
+            // must not depend on ZIP order or on whether a reader uses exact-name lookup.
+            if !names.insert(name.to_ascii_lowercase()) {
+                return Err(DocxError::Zip(format!("duplicate part name: {name}")));
+            }
             if f.size() > max_part {
                 return Err(DocxError::Limit(format!("part {name} declares {} bytes", f.size())));
             }
             let room = max_part.min(max_total.saturating_sub(total));
             let mut buf = Vec::with_capacity(f.size().min(16 * 1024 * 1024) as usize);
-            let read = (&mut f).take(room + 1).read_to_end(&mut buf);
-            if let Err(e) = read {
-                // A corrupt entry: keep going unless it's a part we can't do without.
-                log::warn!("docx: zip entry {name} unreadable: {e}");
-                continue;
-            }
+            (&mut f).take(room.saturating_add(1)).read_to_end(&mut buf).map_err(|e| DocxError::Zip(format!("part {name}: {e}")))?;
             if buf.len() as u64 > room {
                 return Err(DocxError::Limit(format!("part {name} decompresses past the size limit")));
             }
@@ -227,6 +225,32 @@ impl Package {
         }
         rels
     }
+}
+
+/// The ZIP reader indexes by name and silently collapses exact duplicates. Count the original
+/// central-directory records, using its validated directory offset; variable fields (including
+/// ZIP64 extras) can be skipped by their fixed-header lengths without interpreting them again.
+fn check_directory_entries(bytes: &[u8], directory_start: u64, indexed: usize) -> Result<(), DocxError> {
+    let mut at = usize::try_from(directory_start).map_err(|_| DocxError::Zip("central directory offset is too large".into()))?;
+    let mut count = 0usize;
+    while bytes.get(at..).is_some_and(|b| b.starts_with(b"PK\x01\x02")) {
+        let header = at.checked_add(46).and_then(|end| bytes.get(at..end)).ok_or_else(|| DocxError::Zip("truncated central directory".into()))?;
+        count += 1;
+        if count > MAX_ENTRIES {
+            return Err(DocxError::Limit(format!("more than {MAX_ENTRIES} zip entries")));
+        }
+        let lengths = header.get(28..34).ok_or_else(|| DocxError::Zip("truncated central directory lengths".into()))?;
+        let fields: usize = lengths.as_chunks::<2>().0.iter().map(|n| usize::from(u16::from_le_bytes(*n))).sum();
+        at = at
+            .checked_add(46)
+            .and_then(|p| p.checked_add(fields))
+            .filter(|&p| p <= bytes.len())
+            .ok_or_else(|| DocxError::Zip("central directory entry is outside the package".into()))?;
+    }
+    if count != indexed {
+        return Err(DocxError::Zip("duplicate or inconsistent central directory entries".into()));
+    }
+    Ok(())
 }
 
 /// `[Content_Types].xml`: Override by part name, then Default by extension (both case-insensitive).
@@ -360,6 +384,63 @@ mod tests {
         assert!(matches!(Package::open_limited(&z, 1_000_000, 10_000_000), Err(DocxError::Limit(_))));
         assert!(matches!(Package::open_limited(&z, 10_000_000, 1_000_000), Err(DocxError::Limit(_))));
         assert!(Package::open_limited(&z, 10_000_000, 10_000_000).is_ok());
+    }
+
+    #[test]
+    fn corrupt_secondary_part_is_rejected_instead_of_discarded() {
+        let image = b"original image bytes";
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        for (name, data) in [("word/document.xml", b"<document/>".as_slice()), ("word/media/image.png", image.as_slice())] {
+            writer.start_file(name, opts).unwrap();
+            writer.write_all(data).unwrap();
+        }
+        let mut bytes = writer.finish().unwrap().into_inner();
+        assert!(Package::open(&bytes).is_ok());
+        let at = bytes.windows(image.len()).position(|w| w == image).unwrap();
+        bytes[at] ^= 1;
+        assert!(matches!(Package::open(&bytes), Err(DocxError::Zip(message)) if message.contains("word/media/image.png")));
+    }
+
+    #[test]
+    fn part_names_that_differ_only_in_case_or_leading_slash_are_rejected() {
+        for alias in ["word/DOCUMENT.xml", "/word/document.xml"] {
+            let bytes = zip_of(&[("word/document.xml", b"original".to_vec()), (alias, b"replacement".to_vec())]);
+            assert!(matches!(Package::open(&bytes), Err(DocxError::Zip(message)) if message.contains("duplicate part name")));
+        }
+    }
+
+    #[test]
+    fn exact_duplicate_names_hidden_by_the_zip_index_are_rejected() {
+        let mut bytes = zip_of(&[("a.xml", b"original".to_vec()), ("b.xml", b"replacement".to_vec())]);
+        // The ZIP writer refuses duplicates, so give both local/central records the same
+        // name afterwards. ZIP's by-name index then exposes only the replacement record.
+        let positions: Vec<_> = bytes.windows(5).enumerate().filter_map(|(i, b)| (b == b"b.xml").then_some(i)).collect();
+        assert_eq!(positions.len(), 2);
+        for position in positions {
+            bytes[position] = b'a';
+        }
+        assert_eq!(zip::ZipArchive::new(Cursor::new(&bytes)).unwrap().len(), 1);
+        assert!(matches!(Package::open(&bytes), Err(DocxError::Zip(message)) if message.contains("duplicate")));
+    }
+
+    #[test]
+    fn central_directory_check_handles_archive_offsets_and_directory_entries() {
+        let bytes = zip_of(&[("word/", Vec::new()), ("word/document.xml", b"<document/>".to_vec())]);
+        let mut prefixed = b"a ZIP reader may accept an archive after a preamble\n".to_vec();
+        prefixed.extend_from_slice(&bytes);
+        let package = Package::open(&prefixed).unwrap();
+        assert_eq!(package.get("word/document.xml"), Some(b"<document/>".as_slice()));
+        assert!(package.get("word/").is_none());
+    }
+
+    #[test]
+    fn maximum_limit_and_zero_limit_never_overflow() {
+        let bytes = zip_of(&[("part.xml", b"<part/>".to_vec())]);
+        assert!(Package::open_limited(&bytes, u64::MAX, u64::MAX).is_ok());
+        assert!(matches!(Package::open_limited(&bytes, 0, 0), Err(DocxError::Limit(_))));
+        let empty = zip_of(&[("empty.bin", Vec::new())]);
+        assert!(Package::open_limited(&empty, 0, 0).is_ok());
     }
 
     #[test]

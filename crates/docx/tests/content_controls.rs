@@ -107,6 +107,54 @@ fn by_id(d: &Document, id: i64) -> ContentControl {
 }
 
 #[test]
+fn unknown_control_extensions_survive_edit_save_and_repeated_reopen() {
+    let extensions = r#"<w:id w:val="81"/><w:dataBinding xmlns:v="urn:not-word:test:binding" w:xpath="/form/name" v:hint="preserve"/><v:future xmlns:v="urn:not-word:test:control" v:mode="original"><v:payload>opaque &amp; meaningful</v:payload><v:payload xmlns:v="urn:not-word:test:rebound" v:mode="second"/></v:future>"#;
+    let mut d = read(&package(&sdt(extensions, &p(&t("Original text"))))).unwrap();
+    let before = by_id(&d, 81).extra;
+    assert_eq!(before.len(), 2, "the foreign control extension must be kept");
+    assert!(before[0].contains("preserve"));
+    assert!(before[1].contains("opaque &amp; meaningful"));
+
+    let Block::Para(para) = std::sync::Arc::make_mut(d.body.first_mut().unwrap()) else { panic!("expected paragraph") };
+    para.insert_text(0, "Edited: ", &wordcraft_doc::props::CharProps::default()).unwrap();
+    for _ in 0..3 {
+        let bytes = write(&d).unwrap();
+        let xml = document_xml(&bytes);
+        for namespace in ["urn:not-word:test:binding", "urn:not-word:test:control", "urn:not-word:test:rebound"] {
+            assert!(xml.contains(namespace), "lost extension namespace {namespace}");
+        }
+        d = read(&bytes).unwrap();
+        assert!(d.plain_text(StoryRef::Body).contains("Edited: Original text"));
+        assert_eq!(by_id(&d, 81).extra, before);
+    }
+}
+
+#[test]
+fn inherited_ignorable_control_extension_remains_locally_declared_after_saves() {
+    let body = r#"<w:sdt xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:vendor="urn:not-word:test:ignorable" mc:Ignorable="vendor"><w:sdtPr><w:id w:val="82"/><vendor:future mc:PreserveElements="vendor:payload"><vendor:payload>keep me</vendor:payload></vendor:future><w:dataBinding w:xpath="/root/value" vendor:hint="keep attribute"/></w:sdtPr><w:sdtContent><w:p><w:r><w:t>Visible text</w:t></w:r></w:p></w:sdtContent></w:sdt>"#;
+    let mut doc = read(&package(body)).unwrap();
+    let before = by_id(&doc, 82).extra;
+    assert_eq!(before.len(), 2);
+    // The writer deliberately puts dataBinding before the control type/opaque extras
+    // (CT_SdtPr's sequence). Its order relative to an ignorable extension is not payload
+    // order. Check both complete fragments, including extension-child order, after this
+    // documented normalization and through subsequent saves.
+    let expected = vec![before[1].clone(), before[0].clone()];
+    assert!(expected[0].starts_with("<w:dataBinding") && expected[0].contains("keep attribute"));
+    assert!(expected[1].contains("keep me") && expected[1].contains("mc:PreserveElements=\"nw0:payload\""));
+    for _ in 0..3 {
+        let bytes = write(&doc).unwrap();
+        let xml = document_xml(&bytes);
+        assert!(xml.contains("mc:Ignorable=\"nw0\""));
+        assert!(xml.contains("mc:PreserveElements=\"nw0:payload\""));
+        assert!(xml.contains("xmlns:nw0=\"urn:not-word:test:ignorable\""));
+        doc = read(&bytes).unwrap();
+        assert_eq!(by_id(&doc, 82).extra, expected);
+        assert_eq!(doc.plain_text(StoryRef::Body), "Visible text");
+    }
+}
+
+#[test]
 fn every_kind_reads_with_its_properties() {
     let d = read(&form()).unwrap();
     let intro = controls(&d).into_iter().find(|c| c.title == "Intro").unwrap();

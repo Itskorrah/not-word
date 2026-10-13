@@ -1589,6 +1589,32 @@ fn surrogate_pairs_decode_across_one_cp_each() {
     assert_eq!(body_texts(&doc), vec!["a\u{1F600}b".to_string()]);
 }
 
+#[test]
+fn surrogate_pair_split_between_non_contiguous_pieces_is_preserved() {
+    // CPs 0..2 hold 'a' and the high surrogate; the next piece, elsewhere in the
+    // stream, starts with the low surrogate and continues with 'b' and a paragraph mark.
+    let mut bytes: Vec<u8> = [b'a' as u16, 0xD83D].into_iter().flat_map(u16::to_le_bytes).collect();
+    bytes.resize(16, 0xAA);
+    bytes.extend([0xDE00u16, b'b' as u16, b'\r' as u16].into_iter().flat_map(u16::to_le_bytes));
+    let file = raw_piece_doc(&[0, 2, 5], &[TEXT_FC, TEXT_FC + 16], &bytes, 5);
+    assert_eq!(body_texts(&read(&file).unwrap()), ["a😀b"]);
+}
+
+#[test]
+fn incomplete_surrogate_never_consumes_the_next_story_or_compressed_piece() {
+    let units = [b'a' as u16, 0xD83D, 0xDE00, b'b' as u16, b'\r' as u16];
+    let bytes: Vec<u8> = units.into_iter().flat_map(u16::to_le_bytes).collect();
+    // The main story ends after the high surrogate, although the stream has its low half.
+    let file = raw_piece_doc(&[0, 5], &[TEXT_FC], &bytes, 2);
+    assert_eq!(body_texts(&read(&file).unwrap()), ["a\u{FFFD}"]);
+
+    let mut bytes: Vec<u8> = [b'a' as u16, 0xD83D].into_iter().flat_map(u16::to_le_bytes).collect();
+    bytes.extend_from_slice(b"b\r");
+    let compressed = (2 * (TEXT_FC + 4)) | 0x4000_0000;
+    let file = raw_piece_doc(&[0, 2, 4], &[TEXT_FC, compressed], &bytes, 4);
+    assert_eq!(body_texts(&read(&file).unwrap()), ["a\u{FFFD}b"]);
+}
+
 /// A PICF header (68 bytes) for an `n`-byte PNG-looking payload.
 fn picf_with_png(n: usize) -> Vec<u8> {
     let mut png = b"\x89PNG\r\n\x1a\n".to_vec();

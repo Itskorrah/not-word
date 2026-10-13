@@ -349,7 +349,7 @@ fn walk(ctx: &WalkCtx, cp_start: u32, cp_end: u32, pics: &mut media::Pictures) -
                 pb.objects.push(obj);
             }
         }
-        let (c, units) = match ctx.pieces.char_at(ctx.word, cp) {
+        let (c, units) = match ctx.pieces.char_at(ctx.word, cp, cp_end) {
             Ok(found) => found,
             Err(next) => {
                 cp = next;
