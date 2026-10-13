@@ -1,13 +1,11 @@
-# Quick static checks for the release pipeline (seconds, no Rust build): workflow syntax,
-# packaging shell/PowerShell scripts, and the Linux desktop/AppStream/Flatpak metadata.
 name: Packaging lint
 
 on:
   push:
-    branches: [main, release]
-    paths: [".github/workflows/**", "packaging/**", "assets/app-icon/**"]
+    branches: ['**']
+    paths: ['.github/**', 'packaging/**', 'assets/app-icon/**', 'Cargo.toml']
   pull_request:
-    paths: [".github/workflows/**", "packaging/**", "assets/app-icon/**"]
+    paths: ['.github/**', 'packaging/**', 'assets/app-icon/**', 'Cargo.toml']
   workflow_dispatch:
 
 permissions:
@@ -19,5 +17,40 @@ concurrency:
 
 jobs:
   lint:
-    # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
-    uses: storytold/craft-common-actions/.github/workflows/packaging-lint.yml@main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install metadata and script validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck desktop-file-utils appstream libxml2-utils python3-yaml
+      - name: Install checksum-verified actionlint
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+      - name: Workflow and composite action syntax
+        run: '"$RUNNER_TEMP/actionlint" -color'
+      - name: Shell scripts
+        run: |
+          mapfile -t scripts < <(find packaging -type f -name '*.sh' -print)
+          shellcheck "${scripts[@]}"
+      - name: PowerShell syntax
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem packaging/windows/*.ps1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | Write-Output; exit 1 }
+          }
+      - name: Installer XML, desktop integration and AppStream
+        run: |
+          xmllint --nonet --noout packaging/windows/*.wxs packaging/macos/*.plist* packaging/linux/*.xml*
+          desktop-file-validate packaging/linux/io.github.itskorrah.NotWord.desktop
+          sed -e 's/@VERSION@/0.0.0/' -e 's/@DATE@/2026-01-01/' \
+            packaging/linux/io.github.itskorrah.NotWord.metainfo.xml.in > "$RUNNER_TEMP/io.github.itskorrah.NotWord.metainfo.xml"
+          appstreamcli validate --no-net --explain "$RUNNER_TEMP/io.github.itskorrah.NotWord.metainfo.xml"
+      - name: Product identity, binaries, file associations and Flatpak consistency
+        run: python3 packaging/check_metadata.py

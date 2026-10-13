@@ -1,5 +1,5 @@
 //! `cargo xtask parity`: write docs/parity-checklist.md from the live command registry compared with the
-//! word-processor feature catalog (via `wordcraft-cli parity --markdown`).
+//! word-processor feature catalog (via `not-word-cli parity --markdown`).
 
 use std::path::Path;
 

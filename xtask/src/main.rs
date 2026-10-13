@@ -75,7 +75,7 @@ fn run(mut cmd: Command, what: &str) -> Result<(), String> {
 }
 
 pub fn metadata() -> Result<serde_json::Value, String> {
-    let out = cargo().args(["metadata", "--format-version", "1", "--no-deps"]).output().map_err(|e| format!("cargo metadata: {e}"))?;
+    let out = cargo().args(["metadata", "--locked", "--format-version", "1", "--no-deps"]).output().map_err(|e| format!("cargo metadata: {e}"))?;
     if !out.status.success() {
         return Err(format!("cargo metadata failed:\n{}", String::from_utf8_lossy(&out.stderr)));
     }
@@ -136,7 +136,7 @@ fn cmd_wasm() -> Result<(), String> {
     let mut results = Vec::new();
     for pkg in &set {
         let mut c = cargo();
-        c.args(["check", "--target", "wasm32-unknown-unknown", "-p", pkg]);
+        c.args(["check", "--locked", "--target", "wasm32-unknown-unknown", "-p", pkg]);
         let ok = run(c, &format!("cargo check --target wasm32-unknown-unknown -p {pkg}")).is_ok();
         results.push((pkg.clone(), ok));
     }
@@ -163,7 +163,7 @@ fn cmd_ci() -> Result<(), String> {
             "clippy",
             Box::new(|| {
                 let mut c = cargo();
-                c.args(["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]);
+                c.args(["clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"]);
                 run(c, "cargo clippy --workspace --all-targets -- -D warnings")
             }),
         ),
@@ -171,7 +171,7 @@ fn cmd_ci() -> Result<(), String> {
             "test",
             Box::new(|| {
                 let mut c = cargo();
-                c.args(["test", "--workspace"]);
+                c.args(["test", "--locked", "--workspace"]);
                 run(c, "cargo test --workspace")
             }),
         ),

@@ -1,0 +1,42 @@
+name: Not Word release inputs
+description: Resolve the independent product build metadata and pinned optional fonts.
+inputs:
+  version:
+    description: Validated release version
+    required: true
+  date:
+    description: UTC build date
+    required: true
+  override-version:
+    description: Whether to apply the requested version override to the ephemeral CI checkout
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Check out redistributable font sources
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: storytold/craft-fonts
+        ref: 8dcdacd5153e64560d109541a47d806f26f048c0
+        path: .release-fonts
+        persist-credentials: false
+    - name: Configure product metadata
+      shell: bash
+      env:
+        RELEASE_VERSION: ${{ inputs.version }}
+        RELEASE_DATE: ${{ inputs.date }}
+        OVERRIDE_VERSION: ${{ inputs.override-version }}
+      run: |
+        if [ "$OVERRIDE_VERSION" = true ]; then
+          cargo run --locked -p xtask -- version set "$RELEASE_VERSION"
+        fi
+        {
+          echo "NOT_WORD_VERSION=$RELEASE_VERSION"
+          echo "NOT_WORD_BUILD_DATE=$RELEASE_DATE"
+          echo "NOT_WORD_BUILD_SHA=$GITHUB_SHA"
+          echo "WORDCRAFT_VERSION=$RELEASE_VERSION"
+          echo "WORDCRAFT_BUILD_DATE=$RELEASE_DATE"
+          echo "WORDCRAFT_BUILD_SHA=$GITHUB_SHA"
+          echo "CRAFT_FONTS_DIR=$GITHUB_WORKSPACE/.release-fonts"
+          echo "CRAFT_FONTS_REQUIRED=1"
+        } >> "$GITHUB_ENV"
