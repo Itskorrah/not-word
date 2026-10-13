@@ -114,7 +114,7 @@ fn core_breaks(core: &[char], lang: ProofLang) -> (Vec<usize>, Source) {
         return core_breaks_pl(core);
     }
     // Bulgarian words follow the Bulgarian syllable rules; Latin-script words in a Bulgarian run
-    // (`WordCraft`, `email`) are hyphenated as English, as in any other language.
+    // (`Not Word`, `email`) are hyphenated as English, as in any other language.
     if lang == ProofLang::Bg && core.iter().all(|&c| crate::bg::is_letter(c)) {
         return (crate::bg::points(core), Source::Rules);
     }
@@ -798,7 +798,7 @@ mod tests {
         assert_eq!(bg("„шофьор“,"), "„шо-фьор“,");
         assert_eq!(word_breaks_in("таблица", ProofLang::Bg).1, Source::Rules);
         // Latin words in a Bulgarian run are hyphenated as English.
-        for w in ["publication", "WordCraft"] {
+        for w in ["publication", "Not Word"] {
             assert_eq!(hyphen_points_in(w, &Limits::default(), ProofLang::Bg), hyphen_points(w, &Limits::default()), "{w}");
         }
     }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regenerate background.tiff and dmg-layout.DS_Store for the macOS DMG window (see README.md here).
 
-Needs resvg on PATH and:
+Needs resvg or Inkscape on PATH and:
     pip install 'pillow>=12' ds_store==1.3.3 mac_alias==2.2.3
 
 Runs on any OS, no Mac needed. Both outputs come from this script alone, so they carry nothing
@@ -24,12 +24,12 @@ from PIL import Image, ImageCms
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Keep in sync with package.sh (volume name) and README.md (layout).
-VOLUME = "WordCraft"
+VOLUME = "Not Word"
 WIDTH, HEIGHT = 660, 400  # window content, pt; the background's 1x size
 TITLE_BAR = 32
 ICON_SIZE = 128
 PALETTE = 16  # colours in background.tiff
-ICONS = {"WordCraft.app": (326, 205), "Applications": (574, 205)}
+ICONS = {"Not Word.app": (326, 205), "Applications": (574, 205)}
 # A fixed date for the alias and the colour profile. Finder never matches it against the image
 # (each build is a new volume): it finds the background by volume name and path.
 FIXED_DATE = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
@@ -38,10 +38,11 @@ FIXED_DATE = datetime.datetime(2026, 10, 8, tzinfo=datetime.timezone.utc)
 def render(svg, width, out):
     # The SVG's text is already outlined and no fonts are loaded, so every machine draws the
     # same pixels.
-    subprocess.run(
-        ["resvg", "--skip-system-fonts", "-w", str(width), svg, out],
-        check=True,
-    )
+    if shutil.which("resvg"):
+        args = ["resvg", "--skip-system-fonts", "-w", str(width), svg, out]
+    else:
+        args = ["inkscape", svg, "--export-type=png", f"--export-width={width}", f"--export-filename={out}"]
+    subprocess.run(args, check=True)
     with Image.open(out) as im:
         return im.convert("RGB")
 
@@ -148,8 +149,8 @@ def write_ds_store(out):
 
 
 def main():
-    if not shutil.which("resvg"):
-        sys.exit("error: resvg not found (brew install resvg / cargo install resvg --locked)")
+    if not (shutil.which("resvg") or shutil.which("inkscape")):
+        sys.exit("error: install resvg or Inkscape to render the original SVG background")
     write_tiff(os.path.join(HERE, "background.svg"), os.path.join(HERE, "background.tiff"))
     write_ds_store(os.path.join(HERE, "dmg-layout.DS_Store"))
 

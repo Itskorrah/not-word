@@ -1,4 +1,4 @@
-//! WordCraft PDF export, written with `krilla`.
+//! Not Word PDF export, written with `krilla`.
 //!
 //! [`export`] lays the document out and draws each page's display list
 //! ([`wordcraft_layout::display::page_display`]) into a PDF page:
@@ -266,7 +266,7 @@ fn clamp_side(v: f32) -> f32 {
 
 fn metadata(doc: &Document, opts: &PdfOptions) -> Metadata {
     let c = &doc.core;
-    let mut m = Metadata::new().creator("WordCraft".into()).producer("WordCraft".into());
+    let mut m = Metadata::new().creator("Not Word".into()).producer("Not Word".into());
     let title = opts.title.clone().unwrap_or_else(|| c.title.clone());
     if !title.trim().is_empty() {
         m = m.title(title);

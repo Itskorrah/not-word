@@ -3,24 +3,24 @@
 # exports VERSION and NFPM_ARCH.
 #
 #   nfpm package -f packaging/linux/nfpm.yaml -p deb -t dist/release/
-name: wordcraft
+name: not-word
 arch: ${NFPM_ARCH}
 platform: linux
 version: ${VERSION}
 # semver: 0.2.0-rc.1 becomes 0.2.0~rc.1 in deb/rpm, so pre-releases sort before the release.
 version_schema: semver
 release: 1
-section: graphics
+section: editors
 priority: optional
-maintainer: ${WORDCRAFT_MAINTAINER}
-vendor: Learning Machines LLC
-homepage: https://getartcraft.com/apps/wordcraft
+maintainer: ${NOT_WORD_MAINTAINER}
+vendor: Itskorrah
+homepage: https://github.com/Itskorrah/not-word
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native word processor that works the way Word users expect.
   The ribbon, styles, tables, track changes, references and mail merge; reads
   and writes .docx, opens .odt, .rtf, .html, .md and .txt, and exports PDF.
-  Includes wordcraft-cli, a headless converter and command runner.
+  Includes not-word-cli, a headless converter and command runner.
 
 # The binaries link only glibc and libgcc_s directly. Windowing (X11/Wayland, xkbcommon) and the
 # GPU (Vulkan, EGL/GL) are loaded at runtime, so they are dependencies/recommendations here
@@ -55,11 +55,11 @@ overrides:
       - xdg-desktop-portal
 
 contents:
-  - src: ${STAGE}/usr/bin/wordcraft
-    dst: /usr/bin/wordcraft
+  - src: ${STAGE}/usr/bin/not-word
+    dst: /usr/bin/not-word
     file_info: { mode: 0755 }
-  - src: ${STAGE}/usr/bin/wordcraft-cli
-    dst: /usr/bin/wordcraft-cli
+  - src: ${STAGE}/usr/bin/not-word-cli
+    dst: /usr/bin/not-word-cli
     file_info: { mode: 0755 }
   - src: ${STAGE}/usr/share/
     dst: /usr/share/

@@ -4,19 +4,45 @@
 use std::path::{Path, PathBuf};
 
 /// The app's settings folder (preferences, logs, key files): macOS
-/// `~/Library/Application Support/WordCraft`, Windows `%APPDATA%\WordCraft`, otherwise
-/// `$XDG_CONFIG_HOME/wordcraft` or `~/.config/wordcraft`.
+/// `~/Library/Application Support/Not Word`, Windows `%APPDATA%\NotWord`, otherwise
+/// `$XDG_CONFIG_HOME/not-word` or `~/.config/not-word`.
 pub fn settings_dir() -> Option<PathBuf> {
+    settings_dir_named("Not Word", "NotWord", "not-word")
+}
+
+/// The upstream settings directory, for reading existing preferences and for bridging a
+/// still-running older app. New writes always use [`settings_dir`].
+pub fn legacy_settings_dir() -> Option<PathBuf> {
+    settings_dir_named("WordCraft", "WordCraft", "wordcraft")
+}
+
+fn settings_dir_named(macos: &str, windows: &str, unix: &str) -> Option<PathBuf> {
     if cfg!(target_os = "macos") {
-        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support/WordCraft"))
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support").join(macos))
     } else if cfg!(windows) {
-        std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("WordCraft"))
+        std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join(windows))
     } else {
         std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-            .map(|c| c.join("wordcraft"))
+            .map(|c| c.join(unix))
     }
+}
+
+/// Read existing upstream preferences only when the independently branded file has not
+/// been written yet. The old file is never moved, overwritten or deleted.
+pub fn settings_file_for_read(name: &str) -> Option<PathBuf> {
+    Some(preferred_file(&settings_dir()?, legacy_settings_dir().as_deref(), name))
+}
+
+fn preferred_file(current: &Path, legacy: Option<&Path>, name: &str) -> PathBuf {
+    let path = current.join(name);
+    if !path.exists()
+        && let Some(old) = legacy.map(|d| d.join(name)).filter(|p| p.is_file())
+    {
+        return old;
+    }
+    path
 }
 
 /// The `instance-id=` value of a `/.flatpak-info` file, only when it is `[A-Za-z0-9_-]+` (it
@@ -77,7 +103,39 @@ mod tests {
     fn settings_dir_is_the_apps_folder() {
         if let Some(d) = settings_dir() {
             let name = d.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            assert!(name == "wordcraft" || name == "WordCraft", "{}", d.display());
+            assert!(name == "not-word" || name == "Not Word" || name == "NotWord", "{}", d.display());
         }
+    }
+
+    #[test]
+    fn legacy_settings_dir_retains_the_upstream_folder() {
+        if let Some(dir) = legacy_settings_dir() {
+            let expected = if cfg!(windows) || cfg!(target_os = "macos") { "WordCraft" } else { "wordcraft" };
+            assert_eq!(dir.file_name().and_then(|n| n.to_str()), Some(expected));
+            assert_ne!(Some(dir), settings_dir());
+        }
+    }
+
+    #[test]
+    fn existing_new_preferences_win_and_legacy_files_are_preserved() {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "not-word-migration-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        let current = root.join("not-word");
+        let legacy = root.join("wordcraft");
+        std::fs::create_dir_all(&current).unwrap();
+        std::fs::create_dir_all(&legacy).unwrap();
+        let old = legacy.join("ui.json");
+        std::fs::write(&old, b"legacy").unwrap();
+        assert_eq!(preferred_file(&current, Some(&legacy), "ui.json"), old);
+        let new = current.join("ui.json");
+        std::fs::write(&new, b"new").unwrap();
+        assert_eq!(preferred_file(&current, Some(&legacy), "ui.json"), new);
+        assert_eq!(std::fs::read(&old).unwrap(), b"legacy");
+        assert_eq!(preferred_file(&current, Some(&legacy), "missing.json"), current.join("missing.json"));
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

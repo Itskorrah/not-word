@@ -1,6 +1,6 @@
 //! Hunspell dictionaries installed on the system, read at runtime.
 //!
-//! WordCraft doesn't bundle large spelling dictionaries. For languages with an affix dictionary
+//! Not Word doesn't bundle large spelling dictionaries. For languages with an affix dictionary
 //! (Polish), it reads the standard Hunspell `.aff`/`.dic` pair installed by the operating system,
 //! a package manager or LibreOffice, with [`crate::affix::AffixDict::from_hunspell`]. When none is
 //! installed the language has no spelling check (no marks, no errors), like Word without the
@@ -47,7 +47,10 @@ pub fn search_dirs(lo_exts: Option<&[String]>) -> Vec<PathBuf> {
     if cfg!(target_arch = "wasm32") {
         return dirs;
     }
-    if let Some(d) = std::env::var_os("WORDCRAFT_DICTIONARIES").filter(|v| !v.is_empty()) {
+    if let Some(d) = std::env::var_os("NOT_WORD_DICTIONARIES")
+        .filter(|v| !v.is_empty())
+        .or_else(|| std::env::var_os("WORDCRAFT_DICTIONARIES").filter(|v| !v.is_empty()))
+    {
         dirs.push(PathBuf::from(d));
     }
     // LibreOffice keeps each language under `…/share/extensions/<dict-xx>`.
@@ -57,6 +60,7 @@ pub fn search_dirs(lo_exts: Option<&[String]>) -> Vec<PathBuf> {
     if cfg!(windows) {
         for var in ["LOCALAPPDATA", "APPDATA"] {
             if let Some(base) = std::env::var_os(var).filter(|v| !v.is_empty()).map(PathBuf::from) {
+                dirs.push(base.join("NotWord").join("dictionaries"));
                 dirs.push(base.join("WordCraft").join("dictionaries"));
                 dirs.push(base.join("hunspell"));
             }

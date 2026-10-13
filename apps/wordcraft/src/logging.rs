@@ -3,12 +3,12 @@
 //! Without a logger every `log::warn!`/`log::error!` in the workspace (an unreadable part of a
 //! .docx, a picture or font a PDF export had to leave out, a PNG that would not encode) vanished. A
 //! launch from a desktop menu has no terminal, so the file is what a bug report can attach:
-//! `<settings dir>/logs/wordcraft.log`, next to the preferences (`prefs_path` in `main.rs`). Each
-//! start moves the previous log to `wordcraft.1.log` (and that one to `.2`), so the log of a run
+//! `<settings dir>/logs/not-word.log`, next to the preferences (`prefs_path` in `main.rs`). Each
+//! start moves the previous log to `not-word.1.log` (and that one to `.2`), so the log of a run
 //! that crashed survives the next launch. Runs without preferences (`WORDCRAFT_NO_PREFS`) log to
 //! standard error only.
 //!
-//! Levels: `info` for WordCraft's own crates, `warn` for everything else (wgpu and naga are
+//! Levels: `info` for Not Word's own crates, `warn` for everything else (wgpu and naga are
 //! chatty). `RUST_LOG` replaces that with env_logger-style directives: `debug`,
 //! `warn,wordcraft_docx=trace`, `wgpu_core=info`. A directive ending in `*` matches every target
 //! that starts with it (`wordcraft*=debug`).
@@ -30,8 +30,8 @@ use std::time::SystemTime;
 use log::LevelFilter;
 
 /// The current log file's name inside the log directory.
-pub const LOG_FILE: &str = "wordcraft.log";
-/// How many previous logs are kept (`wordcraft.1.log` … `wordcraft.<KEEP>.log`).
+pub const LOG_FILE: &str = "not-word.log";
+/// How many previous logs are kept (`not-word.1.log` … `wordcraft.<KEEP>.log`).
 pub const KEEP: usize = 2;
 /// The log file stops growing past this size (a runaway warning can't fill the disk).
 pub const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
@@ -120,7 +120,7 @@ fn civil_from_days(days: u64) -> (u64, u64, u64) {
 }
 
 fn numbered(dir: &Path, n: usize) -> PathBuf {
-    if n == 0 { dir.join(LOG_FILE) } else { dir.join(format!("wordcraft.{n}.log")) }
+    if n == 0 { dir.join(LOG_FILE) } else { dir.join(format!("not-word.{n}.log")) }
 }
 
 /// Shift the previous logs up one (`.log` → `.1.log` → … → `.<KEEP>.log`, the oldest dropped)
@@ -459,9 +459,9 @@ mod tests {
             std::fs::write(&path, format!("run {run}")).expect("write");
         }
         assert_eq!(read(&dir.join(LOG_FILE)), "run 4");
-        assert_eq!(read(&dir.join("wordcraft.1.log")), "run 3");
-        assert_eq!(read(&dir.join("wordcraft.2.log")), "run 2");
-        assert!(!dir.join("wordcraft.3.log").exists(), "only {KEEP} old logs are kept");
+        assert_eq!(read(&dir.join("not-word.1.log")), "run 3");
+        assert_eq!(read(&dir.join("not-word.2.log")), "run 2");
+        assert!(!dir.join("not-word.3.log").exists(), "only {KEEP} old logs are kept");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -567,7 +567,7 @@ mod tests {
         assert!(!logger.enabled(&log::Metadata::builder().level(log::Level::Info).target("naga").build()));
         // Attaching again rotates: the first log becomes `.1`.
         logger.attach_dir(&dir).expect("attach again");
-        assert_eq!(read(&dir.join("wordcraft.1.log")), text);
+        assert_eq!(read(&dir.join("not-word.1.log")), text);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

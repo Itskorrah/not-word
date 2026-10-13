@@ -5,7 +5,16 @@ use wordcraft_doc::Document;
 #[cfg(not(target_arch = "wasm32"))]
 mod safe_save;
 
-/// Formats WordCraft opens.
+/// Replace a local data file only after its complete contents have been written and
+/// synchronized. Used by desktop preferences as well as document saves. Automation write
+/// confinement applies here too; a denied or failed write leaves the existing file intact.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
+    crate::file_access::check_write(&path.to_string_lossy())?;
+    safe_save::write(path, bytes).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// Formats Not Word opens.
 pub const OPEN_EXTS: &[&str] = &[
     "docx",
     "docm",
@@ -27,7 +36,7 @@ pub const OPEN_EXTS: &[&str] = &[
     "wcraft.json",
     "json",
 ];
-/// Formats WordCraft saves (Save As).
+/// Formats Not Word saves (Save As).
 pub const SAVE_EXTS: &[&str] = &["docx", "docm", "dotx", "dotm", "pdf", "txt", "md", "html", "rtf", "odt", "tex", "png", "json", "xml"];
 
 /// The extension of a file name or path, lower-case; empty when the file name has none (a dot
@@ -188,7 +197,7 @@ fn signature_contradicts(ext: &str, bytes: &[u8]) -> bool {
     held != expected
 }
 
-/// A file whose extension names no format WordCraft knows (`.m3u`, `.log`, `.ini`, none…),
+/// A file whose extension names no format Not Word knows (`.m3u`, `.log`, `.ini`, none…),
 /// opened by what it holds, as Word does: a Word document or RTF file by its signature, any
 /// other text through the plain-text import with encoding detection (#569). Anything else is
 /// refused with a clear error rather than shown as garbage.
@@ -198,15 +207,15 @@ fn open_by_content(name: &str, ext: &str, bytes: &[u8], password: Option<&str>) 
     let (mut doc, encrypted) = if bytes.starts_with(OLE) && wordcraft_docx::is_encrypted(bytes) {
         (wordcraft_docx::read_with_password(bytes, password).map_err(|e| e.to_string())?, true)
     } else if bytes.starts_with(ZIP) {
-        (wordcraft_docx::read(bytes).map_err(|e| format!("{name}: not a document WordCraft can open ({e})"))?, false)
+        (wordcraft_docx::read(bytes).map_err(|e| format!("{name}: not a document Not Word can open ({e})"))?, false)
     } else if bytes.starts_with(OLE) {
-        (wordcraft_docbin::read(bytes).map_err(|e| format!("{name}: not a document WordCraft can open ({e})"))?, false)
+        (wordcraft_docbin::read(bytes).map_err(|e| format!("{name}: not a document Not Word can open ({e})"))?, false)
     } else if bytes.starts_with(b"{\\rtf") {
         (wordcraft_formats::rtf::import(bytes)?, false)
     } else if wordcraft_formats::txt::is_text(bytes) {
         (wordcraft_formats::txt::import(bytes), false)
     } else if ext.is_empty() {
-        return Err(format!("{name}: not a document or text file WordCraft can open"));
+        return Err(format!("{name}: not a document or text file Not Word can open"));
     } else {
         return Err(format!("{name}: unsupported format `.{ext}` (not a document or text file)"));
     };
@@ -429,7 +438,7 @@ pub fn save_path(path: &std::path::Path, doc: &Document) -> Result<(), String> {
 pub fn save_path_with(path: &std::path::Path, doc: &Document, password: Option<&str>, opts: &ExportOptions) -> Result<(), String> {
     crate::file_access::check_write(&path.to_string_lossy())?;
     let bytes = save_bytes_with(&path.to_string_lossy(), doc, password, opts)?;
-    safe_save::write(path, &bytes).map_err(|e| format!("{}: {e}", path.display()))
+    write_atomic(path, &bytes)
 }
 
 #[cfg(target_arch = "wasm32")]

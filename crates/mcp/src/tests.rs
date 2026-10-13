@@ -22,7 +22,7 @@ fn tool(s: &mut Server, name: &str, args: Value) -> Value {
 fn lifecycle_and_tools() {
     let mut s = Server::new(Box::new(Headless::default()));
     let init = call(&mut s, 1, "initialize", json!({"protocolVersion": "2025-06-18"}));
-    assert_eq!(init["result"]["serverInfo"]["name"], "wordcraft");
+    assert_eq!(init["result"]["serverInfo"]["name"], "not-word");
     assert!(s.handle_line(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).is_none());
     let tools = call(&mut s, 2, "tools/list", json!({}));
     assert!(tools["result"]["tools"].as_array().unwrap().len() >= 12);
@@ -64,8 +64,15 @@ fn resources() {
     let mut s = Server::new(Box::new(Headless::default()));
     let l = call(&mut s, 1, "resources/list", json!({}));
     assert_eq!(l["result"]["resources"].as_array().unwrap().len(), 2);
-    let r = call(&mut s, 2, "resources/read", json!({"uri": "wordcraft://document"}));
-    assert!(r["result"]["contents"][0]["text"].as_str().unwrap().contains("blocks"));
+    assert_eq!(l["result"]["resources"][0]["uri"], "not-word://document");
+    let mut replies = Vec::new();
+    for (i, uri) in ["not-word://document", "wordcraft://document"].into_iter().enumerate() {
+        let r = call(&mut s, i as u64 + 2, "resources/read", json!({"uri": uri}));
+        let text = r["result"]["contents"][0]["text"].as_str().unwrap().to_string();
+        assert!(text.contains("blocks"));
+        replies.push(text);
+    }
+    assert_eq!(replies[0], replies[1], "existing resource bookmarks remain valid");
 }
 
 /// A backend standing in for a running app: it answers `ui.render` and `ui.screenshot` with a

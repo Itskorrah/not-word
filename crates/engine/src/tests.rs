@@ -1605,7 +1605,7 @@ fn set_author_refuses_blank_names_and_clamps_long_ones() {
     let mut s = s();
     for bad in [json!(null), json!({}), json!({"name": 5}), json!({"name": ""}), json!({"name": " \t\n "}), json!({"name": "\u{0}\u{7}"})] {
         assert!(s.run("file.setAuthor", &bad).is_err(), "{bad} should be refused");
-        assert_eq!(s.author, "WordCraft User", "a refused name leaves the author alone");
+        assert_eq!(s.author, "Not Word User", "a refused name leaves the author alone");
     }
     run(&mut s, "file.setAuthor", json!({"name": "Ada\u{0}\u{1b} Lovelace"}));
     assert_eq!(s.author, "Ada Lovelace", "control characters can't reach the saved XML");
@@ -3854,7 +3854,7 @@ fn documents_open_by_content_when_the_extension_is_wrong() {
     assert!(crate::io::open_bytes("broken.doc", b"\x00\x01not a document").is_err());
 }
 
-/// #569: a playlist (.m3u / .m3u8) — or any file with an extension WordCraft doesn't know —
+/// #569: a playlist (.m3u / .m3u8) — or any file with an extension Not Word doesn't know —
 /// opens as plain text with its encoding detected, like Word's text import; a binary file is a
 /// clean error, never garbage or a panic.
 #[test]

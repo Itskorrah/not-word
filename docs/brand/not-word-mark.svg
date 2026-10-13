@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Not Word application icon</title>
+  <desc id="desc">An original white N with a teal ink diagonal and folded page corner on a dark slate tile.</desc>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#213b50"/>
+      <stop offset="1" stop-color="#101d2d"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#65ead4"/>
+      <stop offset="1" stop-color="#3eacd9"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#7293a5" stroke-opacity=".2" stroke-width="2"/>
+  <path d="M130 368V144h58l136 155V144h58v224h-58L188 213v155z" fill="#f1f7fa"/>
+  <path d="M188 144l136 155v69L188 213z" fill="url(#ink)"/>
+  <path d="M343 105h39v39z" fill="#65ead4"/>
+</svg>

@@ -256,6 +256,7 @@ struct Shared {
     generation: u64,
     error: Option<String>,
     /// A worker thread is running (cleared under the lock as it exits).
+    #[cfg(not(target_arch = "wasm32"))]
     running: bool,
 }
 
@@ -274,7 +275,16 @@ impl Default for ReadAloud {
         let off = cfg!(test) || std::env::var("WORDCRAFT_SPEECH").is_ok_and(|v| v == "off");
         ReadAloud {
             shared: Arc::new((
-                Mutex::new(Shared { queue: Vec::new(), index: 0, state: State::Stopped, rate: 1.0, generation: 0, error: None, running: false }),
+                Mutex::new(Shared {
+                    queue: Vec::new(),
+                    index: 0,
+                    state: State::Stopped,
+                    rate: 1.0,
+                    generation: 0,
+                    error: None,
+                    #[cfg(not(target_arch = "wasm32"))]
+                    running: false,
+                }),
                 Condvar::new(),
             )),
             backend: if off { Backend::Hold } else { Backend::System },

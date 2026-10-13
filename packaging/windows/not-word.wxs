@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Not Word MSI (WiX Toolset v5: `dotnet tool install -g wix`, plus its UI and Util extensions:
+  `wix extension add -g WixToolset.UI.wixext/5.0.2` and the same for WixToolset.Util.wixext).
+  Built by package.ps1:
+
+    wix build not-word.wxs -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext
+      -d Version=1.2.3 -d BinDir=... -d IconPath=... -d LicenseRtf=... -o out.msi
+
+  Per-machine install into Program Files with a Start Menu shortcut. The installer shows the
+  standard WiX dialogs: welcome + license, progress, and a finish page.
+
+  UpgradeCode and the component GUIDs below belong to Not Word alone. Never copy them from (or
+  into) a sibling Craft app: Windows Installer treats every package sharing an UpgradeCode as one
+  product, so a shared code makes one app's installer refuse to install ("a newer version is
+  already installed") or silently uninstall the other. packaging-lint.yml checks this.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+      Name="Not Word"
+      Manufacturer="Itskorrah"
+      Version="$(var.Version)"
+      UpgradeCode="23ED68CB-8753-55C1-9E56-18BC4D76EAF3"
+      Scope="perMachine"
+      Compressed="yes"
+      Language="1033">
+    <SummaryInformation Description="Not Word word processor" Manufacturer="Itskorrah" />
+    <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
+         (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer version of Not Word is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="NotWordIcon.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="NotWordIcon.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Itskorrah/not-word" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Itskorrah/not-word" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Itskorrah/not-word/issues" />
+
+    <!-- Installer UI (#198): WixUI_Minimal is welcome + license, progress, then a finish page so
+         people can see the install worked. Its dialogs and bitmaps are WiX's own
+         (WixToolset.UI.wixext); package.ps1 builds the license RTF from LICENSE-MIT and
+         LICENSE-APACHE. The finish page offers to launch Not Word (ticked by default) through
+         WixShellExec (WixToolset.Util.wixext); silent installs (/qn) never show it. -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Not Word" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#NotWordExe]" />
+    <CustomAction Id="LaunchNotWord" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" DllEntry="WixShellExec"
+        Impersonate="yes" Return="ignore" />
+    <UI>
+      <ui:WixUI Id="WixUI_Minimal" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchNotWord"
+          Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="Not Word" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="Not Word" Level="1">
+      <ComponentGroupRef Id="NotWordFiles" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="NotWordFiles" Directory="INSTALLFOLDER">
+      <Component Id="NotWordApp" Guid="ADB43B76-65D2-50E4-B5E8-E86EC817534F">
+        <File Id="NotWordExe" Source="$(var.BinDir)\not-word.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Not Word"
+              Description="Not Word word processor" WorkingDirectory="INSTALLFOLDER" Advertise="yes"
+              Icon="NotWordIcon.ico" IconIndex="0" />
+        </File>
+
+        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\not-word.exe" Value="[#NotWordExe]" Type="string" />
+      </Component>
+
+      <!-- File associations (#295). Each document type gets a Not Word ProgId (name, icon, open
+           command) and is listed under the extension's OpenWithProgids, so Not Word shows in
+           Explorer's "Open with". The Word, RTF and ODT types are also Not Word's Capabilities
+           (RegisteredApplications), so it appears in Settings › Default apps, where the user
+           makes it the default (File › Options › General opens that page). Nothing here sets an
+           extension's default: the installer never takes over .docx from another app. Markdown and
+           plain text are only "Open with" candidates. Removed again on uninstall. -->
+      <Component Id="NotWordFileTypes" Guid="4074149A-82EF-5539-AA9D-DF387BE0A79E">
+        <RegistryValue Root="HKLM" Key="Software\RegisteredApplications" Name="Not Word" Value="Software\NotWord\Capabilities" Type="string" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities" Name="ApplicationName" Value="Not Word" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities" Name="ApplicationDescription" Value="Write and design documents; open and save Word files." Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities" Name="ApplicationIcon" Value="&quot;[#NotWordExe]&quot;,0" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe" Name="FriendlyAppName" Value="Not Word" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+
+        <ProgId Id="NotWord.Document" Description="Word Document" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.Document\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.docx\OpenWithProgids" Name="NotWord.Document" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".docx" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".docx" Value="NotWord.Document" Type="string" />
+
+        <ProgId Id="NotWord.DocumentMacroEnabled" Description="Word Macro-Enabled Document" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.DocumentMacroEnabled\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.docm\OpenWithProgids" Name="NotWord.DocumentMacroEnabled" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".docm" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".docm" Value="NotWord.DocumentMacroEnabled" Type="string" />
+
+        <ProgId Id="NotWord.Template" Description="Word Template" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.Template\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.dotx\OpenWithProgids" Name="NotWord.Template" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".dotx" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".dotx" Value="NotWord.Template" Type="string" />
+
+        <ProgId Id="NotWord.TemplateMacroEnabled" Description="Word Macro-Enabled Template" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.TemplateMacroEnabled\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.dotm\OpenWithProgids" Name="NotWord.TemplateMacroEnabled" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".dotm" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".dotm" Value="NotWord.TemplateMacroEnabled" Type="string" />
+
+        <ProgId Id="NotWord.LegacyDocument" Description="Legacy Word Document" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.LegacyDocument\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.doc\OpenWithProgids" Name="NotWord.LegacyDocument" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".doc" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".doc" Value="NotWord.LegacyDocument" Type="string" />
+
+        <ProgId Id="NotWord.LegacyTemplate" Description="Legacy Word Template" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.LegacyTemplate\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.dot\OpenWithProgids" Name="NotWord.LegacyTemplate" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".dot" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".dot" Value="NotWord.LegacyTemplate" Type="string" />
+
+        <ProgId Id="NotWord.RichText" Description="Rich Text Document" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.RichText\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.rtf\OpenWithProgids" Name="NotWord.RichText" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".rtf" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".rtf" Value="NotWord.RichText" Type="string" />
+
+        <ProgId Id="NotWord.OpenDocumentText" Description="OpenDocument Text" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.OpenDocumentText\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.odt\OpenWithProgids" Name="NotWord.OpenDocumentText" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".odt" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\NotWord\Capabilities\FileAssociations" Name=".odt" Value="NotWord.OpenDocumentText" Type="string" />
+
+        <ProgId Id="NotWord.Markdown" Description="Markdown Document" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.Markdown\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.md\OpenWithProgids" Name="NotWord.Markdown" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".md" Value="" Type="string" />
+
+        <ProgId Id="NotWord.PlainText" Description="Text Document" Icon="NotWordExe" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\NotWord.PlainText\shell\open\command" Value="&quot;[#NotWordExe]&quot; &quot;%1&quot;" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.txt\OpenWithProgids" Name="NotWord.PlainText" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\not-word.exe\SupportedTypes" Name=".txt" Value="" Type="string" />
+      </Component>
+
+      <Component Id="NotWordCli">
+        <File Id="NotWordCliExe" Source="$(var.BinDir)\not-word-cli.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

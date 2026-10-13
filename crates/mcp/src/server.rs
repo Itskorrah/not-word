@@ -18,15 +18,15 @@ const INVALID_PARAMS: i64 = -32602;
 const INTERNAL_ERROR: i64 = -32603;
 const RESOURCE_NOT_FOUND: i64 = -32002;
 
-const INSTRUCTIONS: &str = "WordCraft is a word processor (a Microsoft Word clone). Every action is a command: find ids and \
+const INSTRUCTIONS: &str = "Not Word is an offline word processor. Every action is a command: find ids and \
 parameters with list_commands and run them with execute (or several with batch). Positions are \
 {story:\"body\", path:[block,(row,cell,block)...], off:byteOffset}. Typical flow: new_document → type_text \
 \"Hello\" → execute text.newParagraph → execute para.style {style:\"Heading 1\"} → select_text {text:\"Hello\"} → \
 execute format.bold → inspect_document to verify → render_page to look at the result → save {path:\"out.docx\"}.";
 
 /// Resource URIs.
-pub const DOC_URI: &str = "wordcraft://document";
-pub const COMMANDS_URI: &str = "wordcraft://commands";
+pub const DOC_URI: &str = "not-word://document";
+pub const COMMANDS_URI: &str = "not-word://commands";
 
 /// An MCP server bound to one backend.
 pub struct Server {
@@ -133,9 +133,9 @@ impl Server {
                 Ok(json!({
                     "protocolVersion": version,
                     "capabilities": {"tools": {}, "resources": {}},
-                    "serverInfo": {"name": "wordcraft", "title": "WordCraft", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://getartcraft.com/apps/wordcraft"},
+                    "serverInfo": {"name": "not-word", "title": "Not Word", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://github.com/Itskorrah/not-word"},
                     "instructions": format!(
-                        "{INSTRUCTIONS} Backend: {}. Community: https://discord.gg/artcraft · https://getartcraft.com/apps/wordcraft · https://github.com/storytold/wordcraft",
+                        "{INSTRUCTIONS} Backend: {}. Community: https://github.com/Itskorrah/not-word/discussions · Source: https://github.com/Itskorrah/not-word",
                         self.backend.describe()
                     ),
                 }))
@@ -155,8 +155,8 @@ impl Server {
             "resources/read" => {
                 let uri = params.get("uri").and_then(Value::as_str).ok_or((INVALID_PARAMS, "missing `uri`".to_string()))?;
                 let v = match uri {
-                    DOC_URI => self.backend.call("document.inspect", json!({})),
-                    COMMANDS_URI => self.backend.call("engine.commands", json!({})),
+                    DOC_URI | "wordcraft://document" => self.backend.call("document.inspect", json!({})),
+                    COMMANDS_URI | "wordcraft://commands" => self.backend.call("engine.commands", json!({})),
                     _ => return Err((RESOURCE_NOT_FOUND, format!("resource not found: {uri}"))),
                 }
                 .map_err(|e| (INTERNAL_ERROR, e))?;
