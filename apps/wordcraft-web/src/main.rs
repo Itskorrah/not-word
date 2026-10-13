@@ -1,4 +1,4 @@
-//! WordCraft in the browser.
+//! Not Word in the browser.
 //!
 //! Runs the same [`wordcraft_ui_egui::WordApp`] as the desktop app through eframe's web runner
 //! (wgpu: WebGPU where available, WebGL2 otherwise). Build with `trunk build --release` from this
@@ -8,6 +8,9 @@
 //! browser file picker (bytes arrive through `Services::inbox`); Save and Export download.
 //! URL flags: `?webgl` forces WebGL2; `?sample` opens the sample document.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+
+#[cfg(any(target_arch = "wasm32", test))]
+mod prefs;
 
 #[cfg(target_arch = "wasm32")]
 mod web;

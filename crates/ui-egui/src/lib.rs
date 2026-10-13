@@ -1,4 +1,4 @@
-//! WordCraft's egui front end: a Word-style window (title bar with Quick Access Toolbar, ribbon,
+//! Not Word's egui front end: a Word-style window (title bar with Quick Access Toolbar, ribbon,
 //! rulers, page canvas, panes, status bar, Backstage, dialogs) over `wordcraft-engine`.
 //!
 //! The UI is thin: it reads `Session` state and acts through [`WordApp::run`] (command ids), so
@@ -76,6 +76,7 @@ pub mod theme;
 pub mod widgets;
 pub mod window_geometry;
 pub mod wordart_menus;
+pub mod workspace;
 pub mod zotero;
 
 use serde::{Deserialize, Serialize};
@@ -141,7 +142,7 @@ pub struct Services {
     pub store_font: Option<Box<dyn Fn(&str, &[u8])>>,
     /// Web: forget a stored font (its stored file name) once the user removes it.
     pub forget_font: Option<Box<dyn Fn(&str)>>,
-    /// Desktop: File › Options › General › Make WordCraft the default for Word documents (#295),
+    /// Desktop: File › Options › General › Make Not Word the default for Word documents (#295),
     /// only from that button (never a programmatic command). Windows opens the Settings app's
     /// Default apps page (apps can't set defaults themselves); Linux and BSD set it with
     /// `xdg-mime`. `None` (web, macOS) hides the button; macOS shows how to do it in Finder
@@ -152,9 +153,9 @@ pub struct Services {
 /// What [`Services::make_default_app`] did.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DefaultApp {
-    /// The system's default-apps settings opened; the user picks WordCraft there (Windows).
+    /// The system's default-apps settings opened; the user picks Not Word there (Windows).
     SettingsOpened,
-    /// WordCraft is now the default app for Word documents (Linux, BSD).
+    /// Not Word is now the default app for Word documents (Linux, BSD).
     MadeDefault,
 }
 
@@ -179,6 +180,12 @@ pub struct UiState {
     pub recent_colors: Vec<String>,
     /// Interface theme: light, dark, or follow the OS appearance (#115).
     pub theme: theme::Appearance,
+    /// The interface accent and accessibility contrast; separate from document formatting.
+    pub accent: theme::Accent,
+    pub high_contrast: bool,
+    /// Workflow name and actual pane visibility, including the user's later adjustments.
+    pub workspace: workspace::Workspace,
+    pub workspace_layout: workspace::Layout,
     /// Interface size in percent (#475): scales the whole interface on top of the system's
     /// display scale. Junk or out-of-range saved values read as 100 % or are clamped to 80–200 %.
     pub interface_size: theme::InterfaceSize,
@@ -272,6 +279,10 @@ impl Default for UiState {
             recent_symbols: Vec::new(),
             recent_colors: Vec::new(),
             theme: theme::Appearance::default(),
+            accent: theme::Accent::default(),
+            high_contrast: false,
+            workspace: workspace::Workspace::default(),
+            workspace_layout: workspace::Layout::default(),
             interface_size: theme::InterfaceSize::default(),
             animations: theme::Animations::default(),
             legacy_dark: None,
@@ -389,7 +400,7 @@ pub struct WordApp {
     pub(crate) want_system_cjk: bool,
     fonts_frames: u32,
     /// The effective interface theme last installed in egui ([`theme::apply`]).
-    applied_theme: Option<theme::Appearance>,
+    applied_theme: Option<(theme::Appearance, theme::Accent, bool)>,
     /// The desktop's light/dark choice, watched while the app runs (Linux has no winit answer).
     desktop_theme: desktop_theme::DesktopTheme,
     /// The last answer [`desktop_theme`] gave, so a frame that asks costs nothing.
@@ -424,7 +435,7 @@ pub struct WordApp {
     pub(crate) read_aloud_error: Option<String>,
     /// The file the document was last explicitly saved to in this session; AutoSave writes only
     /// there. A file that was merely opened isn't rewritten until the user saves it: saving drops
-    /// whatever WordCraft can't represent (content controls, charts, macros…).
+    /// whatever Not Word can't represent (content controls, charts, macros…).
     autosave_path: Option<std::path::PathBuf>,
     /// The file dialog the host is showing, and what its answer is for ([`file_dialogs`]).
     file_dialog: Option<file_dialogs::PendingDialog>,
@@ -554,6 +565,7 @@ impl WordApp {
         ui.keyboard = self.session.keymap.clone();
         ui.ribbon = self.session.ribbon.clone();
         ui.ink_pens = self.session.view.draw.pens.clone();
+        ui.workspace_layout = workspace::Layout::capture(self);
         ui
     }
 
@@ -589,6 +601,7 @@ impl WordApp {
         self.session.ribbon = std::mem::take(&mut self.ui.ribbon);
         self.session.ribbon.retain_known(&reg);
         self.session.view.draw.pens = std::mem::take(&mut self.ui.ink_pens);
+        self.ui.workspace_layout.restore(self);
     }
 
     /// Run a command the user asked for (ribbon, shortcut, Backstage, file drop). New, Open,
@@ -1034,6 +1047,23 @@ impl WordApp {
                 }
                 json!({"theme": self.ui.theme.code(), "dark": self.ui_is_dark()})
             }
+            "ui.accent" => {
+                if let Some(value) = p.get("value") {
+                    let Some(accent) = value.as_str().and_then(theme::Accent::from_code) else {
+                        return Some(Err("`value` must be teal, blue, violet, rose or amber".into()));
+                    };
+                    self.ui.accent = accent;
+                }
+                json!({"accent": self.ui.accent.code()})
+            }
+            "ui.highContrast" => {
+                if let Some(value) = p.get("value") {
+                    let Some(enabled) = value.as_bool() else { return Some(Err("`value` must be a boolean".into())) };
+                    self.ui.high_contrast = enabled;
+                }
+                json!({"enabled": self.ui.high_contrast})
+            }
+            "ui.workspace" => return Some(workspace::command(self, p)),
             "ui.interfaceSize" => {
                 // Interface size in percent, 80–200 (clamped); no value reads it. Document zoom is
                 // `view.zoom` and stays as it is.
@@ -1104,18 +1134,18 @@ impl WordApp {
             // Native printing submits the selected queue on a worker; the browser owns its dialog.
             "ui.printSettings" => return Some(printing::settings(&mut self.printing, p, self.services.printers.as_ref())),
             "ui.print" | "ui.printSubmit" => return Some(self.print_to_system(p)),
-            // File › Options › General › Make WordCraft the default… changes the user's system
+            // File › Options › General › Make Not Word the default… changes the user's system
             // default apps (Linux) or opens system settings (Windows), so only a click on that
             // button does it ([`WordApp::make_default_app`]); scripts, the control channel and
             // MCP get an error.
             "ui.makeDefaultApp" => {
                 return Some(Err(
-                    "making WordCraft the default app needs a click in File › Options › General; scripts and agents can't change system defaults"
+                    "making Not Word the default app needs a click in File › Options › General; scripts and agents can't change system defaults"
                         .into(),
                 ));
             }
-            "ui.discord" => {
-                self.canvas.open_url = Some("https://discord.gg/artcraft".into());
+            "ui.community" | "ui.discord" => {
+                self.canvas.open_url = Some("https://github.com/Itskorrah/not-word/discussions".into());
                 json!({})
             }
             "ui.caretAnimation" => {
@@ -1156,26 +1186,26 @@ impl WordApp {
         printing::submit(self, p)
     }
 
-    /// File › Options › General › Make WordCraft the default…: hand over to the host's
+    /// File › Options › General › Make Not Word the default…: hand over to the host's
     /// [`Services::make_default_app`] and say in the status bar what happened. An error when the
     /// host has no hook (web, macOS). Only the button calls this: it is deliberately not a
     /// command, so nothing programmatic (control channel, MCP, macros) can change system defaults.
     pub(crate) fn make_default_app(&mut self) -> Result<Value, String> {
         let Some(hook) = self.services.make_default_app.as_ref() else {
-            return Err("WordCraft can't change the default apps here; use your system's settings".into());
+            return Err("Not Word can't change the default apps here; use your system's settings".into());
         };
         match hook() {
             Ok(DefaultApp::SettingsOpened) => {
-                self.status(tl!("In Default apps, choose WordCraft for the document types you want it to open."));
+                self.status(tl!("In Default apps, choose Not Word for the document types you want it to open."));
                 Ok(json!({"settingsOpened": true}))
             }
             Ok(DefaultApp::MadeDefault) => {
-                self.status(tl!("WordCraft is now the default app for Word documents."));
+                self.status(tl!("Not Word is now the default app for Word documents."));
                 Ok(json!({"default": true}))
             }
             Err(e) => {
                 log::warn!("make default app: {e}");
-                let msg = i18n::fmt(tl!("Couldn't make WordCraft the default: {error}"), &[("error", &e)]);
+                let msg = i18n::fmt(tl!("Couldn't make Not Word the default: {error}"), &[("error", &e)]);
                 self.status(msg.clone());
                 Err(msg)
             }
@@ -1310,7 +1340,7 @@ impl WordApp {
     pub fn logic(&mut self, ctx: &egui::Context) {
         let lang = i18n::Lang::from_pref(&self.ui.language);
         i18n::set_current(lang);
-        // New documents are written in the interface's language when WordCraft can proof it
+        // New documents are written in the interface's language when Not Word can proof it
         // (a Polish interface: Polish spelling, grammar and hyphenation from the first word).
         if self.applied_editing != Some(lang) {
             self.session.set_editing_language(lang.editing_lang());
@@ -1338,9 +1368,10 @@ impl WordApp {
             },
             other => other,
         };
-        if self.applied_theme != Some(effective) {
-            theme::apply(ctx, effective);
-            self.applied_theme = Some(effective);
+        let palette = (effective, self.ui.accent, self.ui.high_contrast);
+        if self.applied_theme != Some(palette) {
+            theme::apply_customised(ctx, palette.0, palette.1, palette.2);
+            self.applied_theme = Some(palette);
         }
         // Interface size (#475): egui's zoom factor multiplies the display scale the system reports
         // (native pixels per point), so it adds to it rather than replacing it. Keyboard zoom is
@@ -1511,6 +1542,18 @@ impl WordApp {
             return;
         }
         let t = theme::Tokens::get(&ctx);
+        // Escape dismisses a dialog or menu first. With no transient UI, it leaves Focus from
+        // any keyboard owner, including the document canvas.
+        if self.session.view.focus_mode
+            && self.dialog.is_none()
+            && self.colors.is_none()
+            && !self.ui.backstage
+            && !egui::Popup::is_any_open(&ctx)
+            && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        {
+            let _ = self.execute("view.focus", json!({"value": false}));
+            self.canvas.want_focus = true;
+        }
         // Keytips are read before layout so the frame paints the new state; badges paint after
         // the ribbon so they sit on top of it.
         crate::keytips::logic(self, &ctx);
@@ -1518,9 +1561,15 @@ impl WordApp {
             backstage::show(self, ui);
         } else {
             chrome::title_bar(self, ui);
-            ribbon::show(self, ui);
+            if self.session.view.focus_mode {
+                chrome::focus_bar(self, ui);
+            } else {
+                ribbon::show(self, ui);
+            }
             chrome::status_bar(self, ui);
-            panes::show(self, ui);
+            if !self.session.view.focus_mode {
+                panes::show(self, ui);
+            }
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| {
                 canvas::show(self, ui);
             });
@@ -1537,7 +1586,7 @@ impl WordApp {
         if let Some(url) = self.canvas.open_url.take() {
             ctx.open_url(egui::OpenUrl::new_tab(url));
         }
-        let title = format!("{}{} - WordCraft", self.title_stem(), if self.session.dirty { " •" } else { "" });
+        let title = format!("{}{} - Not Word", self.title_stem(), if self.session.dirty { " •" } else { "" });
         if title != self.sent_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.sent_title = title;
@@ -2917,7 +2966,7 @@ mod tests {
         assert!(a.status_msg.as_ref().is_some_and(|(m, _)| m.contains("blocked by the browser")), "the status bar says why");
     }
 
-    /// Make WordCraft the default… (#295) goes through the host's hook and reports the outcome in
+    /// Make Not Word the default… (#295) goes through the host's hook and reports the outcome in
     /// the status bar; without a hook (web, macOS) it's an error and nothing runs.
     #[test]
     fn make_default_app_needs_the_hosts_hook_and_reports_the_outcome() {
@@ -3020,12 +3069,12 @@ mod tests {
         }
     }
 
-    /// File › Options shows Make WordCraft the default… only when the host can do it (#295), and
+    /// File › Options shows Make Not Word the default… only when the host can do it (#295), and
     /// the button runs the host's hook.
     #[test]
     fn the_default_app_button_shows_only_with_the_hosts_hook() {
         use egui_kittest::kittest::Queryable;
-        const LABEL: &str = "Make WordCraft the default for Word documents…";
+        const LABEL: &str = "Make Not Word the default for Word documents…";
         for hook in [false, true] {
             let calls = std::rc::Rc::new(std::cell::Cell::new(0));
             let mut a = app();

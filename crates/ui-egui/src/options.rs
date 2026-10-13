@@ -1,6 +1,6 @@
 //! File › Options (#485): a list of panes on the left (General, Display, Proofing, Save,
 //! Language, Accessibility, Advanced, Agents), the chosen pane's settings on the right. Only
-//! settings WordCraft carries out are shown. Each pane is one function below, so a new setting
+//! settings Not Word carries out are shown. Each pane is one function below, so a new setting
 //! goes into its pane's function. Settings agents can change too go through `file.options`; the
 //! rest live in [`crate::UiState`] (saved in `ui.json`).
 
@@ -170,7 +170,10 @@ fn flag(app: &mut WordApp, ui: &mut Ui, label: &str, key: &str, value: bool) {
 fn general(app: &mut WordApp, ui: &mut Ui) {
     section(ui, "Interface");
     theme_picker(app, ui);
+    accent_picker(app, ui);
     interface_size_picker(app, ui);
+    ui.add_space(6.0);
+    workspace_picker(app, ui);
     ui.checkbox(&mut app.ui.mini_toolbar, tl!("Show the mini toolbar when text is selected"));
     let mut dark_page = app.session.view.dark_mode;
     if ui
@@ -186,9 +189,9 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
     section(ui, "Start-up");
     let mut start = app.ui.start_screen;
     if ui
-        .checkbox(&mut start, tl!("Show the Start screen when WordCraft starts"))
+        .checkbox(&mut start, tl!("Show the Start screen when Not Word starts"))
         .on_hover_text(tl!(
-            "On: WordCraft opens on File › Home, with a blank document, the templates and your recent documents. Off: it opens a blank document."
+            "On: Not Word opens on File › Home, with a blank document, the templates and your recent documents. Off: it opens a blank document."
         ))
         .changed()
     {
@@ -308,7 +311,7 @@ fn save(app: &mut WordApp, ui: &mut Ui) {
     // The browser can't write to the user's files, so AutoSave can't be turned on there (#176).
     let browser = app.autosave_block() == Some(crate::AutoSaveBlock::Browser);
     let mut autosave = app.autosave && !browser;
-    let r = ui.add_enabled(!browser, egui::Checkbox::new(&mut autosave, tl!("AutoSave documents you have saved in WordCraft")));
+    let r = ui.add_enabled(!browser, egui::Checkbox::new(&mut autosave, tl!("AutoSave documents you have saved in Not Word")));
     if browser {
         r.on_disabled_hover_text(crate::AutoSaveBlock::Browser.reason());
     } else if r.changed() {
@@ -328,6 +331,13 @@ fn language(app: &mut WordApp, ui: &mut Ui) {
 }
 
 fn accessibility(app: &mut WordApp, ui: &mut Ui) {
+    section(ui, "Contrast");
+    let mut contrast = app.ui.high_contrast;
+    if ui.checkbox(&mut contrast, tl!("High contrast interface")).changed() {
+        let _ = app.run("ui.highContrast", json!({"value": contrast}));
+    }
+    note(ui, "Use stronger outlines and text on plain surfaces. Document colours, printing and exports are unchanged.");
+    ui.add_space(8.0);
     use wordcraft_engine::speech::{MAX_RATE, MIN_RATE};
     section(ui, "Visual effects");
     animations_picker(app, ui);
@@ -433,7 +443,7 @@ fn advanced(app: &mut WordApp, ui: &mut Ui) {
 
 fn agents(ui: &mut Ui) {
     section(ui, "Agents");
-    ui.label(tl!("Every command is available to scripts and AI agents: run `wordcraft-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel."));
+    ui.label(tl!("Every command is available to scripts and AI agents: run `not-word-cli mcp` for an MCP server, or start the app with `--control <port>` for the JSON control channel."));
 }
 
 /// Interface theme: Light, Dark, or follow the system's appearance (#115).
@@ -449,6 +459,33 @@ fn theme_picker(app: &mut WordApp, ui: &mut Ui) {
             }
         });
     });
+}
+
+fn accent_picker(app: &mut WordApp, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.label(tl!("Accent colour:"));
+        egui::ComboBox::from_id_salt("interface_accent").selected_text(tl!(app.ui.accent.label())).width(220.0).show_ui(ui, |ui| {
+            for accent in crate::theme::Accent::ALL {
+                if ui.selectable_label(app.ui.accent == accent, tl!(accent.label())).clicked() {
+                    let _ = app.run("ui.accent", json!({"value": accent.code()}));
+                }
+            }
+        });
+    });
+}
+
+fn workspace_picker(app: &mut WordApp, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.label(tl!("Workspace:"));
+        egui::ComboBox::from_id_salt("workspace_preset").selected_text(tl!(app.ui.workspace.label())).width(220.0).show_ui(ui, |ui| {
+            for workspace in crate::workspace::Workspace::ALL {
+                if ui.selectable_label(app.ui.workspace == workspace, tl!(workspace.label())).clicked() {
+                    let _ = app.run("ui.workspace", json!({"value": workspace.code()}));
+                }
+            }
+        });
+    });
+    note(ui, "Choose a writing, references or review layout. Pane and ribbon adjustments are saved for the next launch.");
 }
 
 /// Interface size: 80–200 %, on top of the system's display scale (#475).
@@ -565,23 +602,23 @@ fn overlay<T: DeserializeOwned>(root: &mut Value, path: &mut Vec<String>, input:
     }
 }
 
-/// File ▸ Options ▸ General: make WordCraft the default app for Word documents (#295). Only where
+/// File ▸ Options ▸ General: make Not Word the default app for Word documents (#295). Only where
 /// the host can (`Services::make_default_app`: Windows opens Default apps, Linux and BSD use
 /// `xdg-mime`); macOS shows how to do it in Finder, the web shows nothing.
 fn default_app_button(app: &mut WordApp, ui: &mut Ui) {
     if app.services.make_default_app.is_some() {
         let hint = if cfg!(target_os = "windows") {
-            tl!("Opens Settings › Default apps, where you choose WordCraft for .docx and the other document types.")
+            tl!("Opens Settings › Default apps, where you choose Not Word for .docx and the other document types.")
         } else {
-            tl!("Opens .docx, .doc, .rtf and .odt files and Word templates with WordCraft from now on.")
+            tl!("Opens .docx, .doc, .rtf and .odt files and Word templates with Not Word from now on.")
         };
-        if ui.button(tl!("Make WordCraft the default for Word documents…")).on_hover_text(hint).clicked() {
+        if ui.button(tl!("Make Not Word the default for Word documents…")).on_hover_text(hint).clicked() {
             // Straight to the hook, not through `run`: only a click may change system defaults.
             let _ = app.make_default_app();
         }
     } else if cfg!(target_os = "macos") {
         ui.label(
-            egui::RichText::new(tl!("To open Word documents with WordCraft by default: select one in Finder, choose File › Get Info, pick WordCraft under Open with, then click Change All."))
+            egui::RichText::new(tl!("To open Word documents with Not Word by default: select one in Finder, choose File › Get Info, pick Not Word under Open with, then click Change All."))
                 .small()
                 .weak(),
         );
@@ -609,7 +646,7 @@ fn numeral_picker(app: &mut WordApp, ui: &mut Ui) {
 #[cfg(test)]
 mod tests {
     use egui_kittest::kittest::Queryable;
-    use serde_json::json;
+    use serde_json::{Value, json};
     use wordcraft_geom::Unit;
 
     use super::{decimal, length, unit};
@@ -652,6 +689,49 @@ mod tests {
         assert!(!ui.editing.typing_replaces_selection);
         assert!(ui.editing.marks.spaces && !ui.editing.marks.tabs);
         assert!(UiState::from_json(b"[1, 2]").is_none() && UiState::from_json(b"not json").is_none());
+    }
+
+    #[test]
+    fn accent_and_high_contrast_are_persistent_and_validate_commands() {
+        let mut a = app();
+        a.run("ui.accent", json!({"value": "Violet"})).unwrap();
+        a.run("ui.highContrast", json!({"value": true})).unwrap();
+        let saved = serde_json::to_vec(&a.prefs()).unwrap();
+        let mut b = app();
+        b.apply_prefs(UiState::from_json(&saved).unwrap());
+        assert_eq!(b.ui.accent, crate::theme::Accent::Violet);
+        assert!(b.ui.high_contrast);
+        for bad in [Value::Bool(true), json!(["teal"]), json!("unknown")] {
+            assert!(b.run("ui.accent", json!({"value": bad})).is_err());
+            assert_eq!(b.ui.accent, crate::theme::Accent::Violet);
+        }
+        assert!(b.run("ui.highContrast", json!({"value": "yes"})).is_err());
+        assert!(b.ui.high_contrast);
+        let saved = UiState::from_json(br#"{"accent":"future","highContrast":"yes","theme":"dark"}"#).unwrap();
+        assert_eq!(saved.accent, crate::theme::Accent::Teal);
+        assert!(!saved.high_contrast);
+        assert_eq!(saved.theme, Appearance::Dark);
+    }
+
+    #[test]
+    fn accessibility_high_contrast_checkbox_changes_the_real_palette() {
+        use crate::theme::Tokens;
+        let mut a = app();
+        a.run("file.options", json!({"pane": "accessibility"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        h.get_by_label("High contrast interface").click();
+        h.run_steps(4);
+        assert!(h.state().ui.high_contrast);
+        assert_eq!(Tokens::get(&h.ctx).panel, egui::Color32::WHITE);
+        assert_eq!(Tokens::get(&h.ctx).text, egui::Color32::BLACK);
     }
 
     /// Settings saved before #838 kept the unit under `editing.units` (default inches): a unit
@@ -753,10 +833,10 @@ mod tests {
         );
         h.run_steps(4);
         assert!(h.query_by_label("Start-up").is_some(), "the section is there");
-        h.get_by_label("Show the Start screen when WordCraft starts").click();
+        h.get_by_label("Show the Start screen when Not Word starts").click();
         h.run_steps(4);
         assert!(!h.state().ui.start_screen, "the checkbox turns it off");
-        h.get_by_label("Show the Start screen when WordCraft starts").click();
+        h.get_by_label("Show the Start screen when Not Word starts").click();
         h.run_steps(4);
         assert!(h.state().ui.start_screen, "and on again");
     }

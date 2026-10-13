@@ -1,4 +1,4 @@
-//! WordCraft's icon set, drawn in code (original artwork; no external icon assets).
+//! Not Word's icon set, drawn in code (original artwork; no external icon assets).
 //!
 //! Icons are designed on a 20×20 grid in two colours: line work (`c`) and an accent (`a`).
 
@@ -1260,10 +1260,12 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             pen.line_c(&[(14.0, 11.0), (14.0, 17.0)], a);
             pen.line_c(&[(11.0, 14.0), (17.0, 14.0)], a);
         }
-        "discord" => {
-            pen.fill(&[(3.0, 6.0), (7.0, 3.5), (13.0, 3.5), (17.0, 6.0), (17.5, 14.0), (13.5, 16.5), (6.5, 16.5), (2.5, 14.0)], a);
-            pen.fcircle(7.5, 10.5, 1.5, Color32::WHITE);
-            pen.fcircle(12.5, 10.5, 1.5, Color32::WHITE);
+        "community" | "discord" => {
+            // Original conversation bubbles, also used by the legacy icon name.
+            pen.closed(&[(2.5, 3.0), (13.0, 3.0), (13.0, 11.0), (7.0, 11.0), (3.5, 14.0), (3.5, 11.0), (2.5, 11.0)], c);
+            pen.line_c(&[(15.5, 6.0), (18.0, 6.0), (18.0, 14.0), (16.5, 14.0), (16.5, 17.0), (13.0, 14.0), (9.0, 14.0)], a);
+            pen.line_c(&[(5.0, 6.0), (10.5, 6.0)], c);
+            pen.line_c(&[(5.0, 8.5), (9.0, 8.5)], c);
         }
         // Open: a folder with its flap lifted.
         "open" => {

@@ -59,19 +59,22 @@ pub fn start() {
                     let mut session = Session::new(doc);
                     session.system_region = region;
                     let mut app = WordApp::new(session, services(inbox.clone(), cc.egui_ctx.clone(), dirty, saves.clone()));
+                    if let Some(ui) = cc.storage.and_then(|s| s.get_string(crate::prefs::KEY)).as_deref().and_then(crate::prefs::decode) {
+                        app.apply_prefs(ui);
+                    }
                     app.autosave = false;
                     // No document to show: start on File › Home, as the desktop app does (#766).
                     if !sample {
                         app.start_screen();
                     }
-                    Ok(Box::new(WebShell { app, inbox, saves }))
+                    Ok(Box::new(WebShell { app, inbox, saves, saved_prefs: None }))
                 }),
             )
             .await;
         if let Some(el) = document.get_element_by_id(LOADING_ID) {
             match result {
                 Ok(()) => el.remove(),
-                Err(e) => el.set_inner_html(&format!("<p>WordCraft failed to start: {e:?}</p><p>A browser with WebGPU or WebGL2 is required.</p>")),
+                Err(e) => el.set_inner_html(&format!("<p>Not Word failed to start: {e:?}</p><p>A browser with WebGPU or WebGL2 is required.</p>")),
             }
         }
     });
@@ -87,6 +90,7 @@ struct WebShell {
     app: WordApp,
     inbox: Inbox,
     saves: Rc<PickerSaves>,
+    saved_prefs: Option<String>,
 }
 
 /// Saves the browser's save picker finishes after `download` has returned (#728). The app marks
@@ -121,6 +125,21 @@ impl WebShell {
 }
 
 impl eframe::App for WebShell {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        match crate::prefs::encode(&self.app.prefs()) {
+            Ok(text) if self.saved_prefs.as_ref() != Some(&text) => {
+                storage.set_string(crate::prefs::KEY, text.clone());
+                self.saved_prefs = Some(text);
+            }
+            Ok(_) => {}
+            Err(e) => log::warn!("could not save interface preferences: {e}"),
+        }
+    }
+
+    fn auto_save_interval(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(5)
+    }
+
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
         for f in dropped {

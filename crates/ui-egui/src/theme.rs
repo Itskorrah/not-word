@@ -4,9 +4,77 @@ use std::sync::Arc;
 
 use egui::{Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Rect, Stroke, Visuals};
 
-/// WordCraft's app colour (and its darker ink for text on light backgrounds).
-pub const APP_COLOR: Color32 = Color32::from_rgb(0x3B, 0x5B, 0xDB);
-pub const APP_INK: Color32 = Color32::from_rgb(0x2B, 0x47, 0xB5);
+/// Not Word's original teal identity, with darker ink for text on light surfaces.
+pub const APP_COLOR: Color32 = Color32::from_rgb(0x08, 0x7F, 0x8C);
+pub const APP_INK: Color32 = Color32::from_rgb(0x06, 0x61, 0x6C);
+
+/// Curated accent colours. Each palette includes readable text on filled controls in both themes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(from = "String", into = "String")]
+pub enum Accent {
+    #[default]
+    Teal,
+    Blue,
+    Violet,
+    Rose,
+    Amber,
+}
+
+impl Accent {
+    pub const ALL: [Self; 5] = [Self::Teal, Self::Blue, Self::Violet, Self::Rose, Self::Amber];
+
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Teal => "teal",
+            Self::Blue => "blue",
+            Self::Violet => "violet",
+            Self::Rose => "rose",
+            Self::Amber => "amber",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Teal => "Teal",
+            Self::Blue => "Blue",
+            Self::Violet => "Violet",
+            Self::Rose => "Rose",
+            Self::Amber => "Amber",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|a| a.code().eq_ignore_ascii_case(code.trim()))
+    }
+
+    fn colours(self, dark: bool) -> (Color32, Color32) {
+        let (accent, ink) = match (self, dark) {
+            (Self::Teal, false) => return (APP_COLOR, APP_INK),
+            (Self::Blue, false) => ([0x35, 0x62, 0xD7], [0x26, 0x4C, 0xAD]),
+            (Self::Violet, false) => ([0x6F, 0x48, 0xC9], [0x56, 0x34, 0xA4]),
+            (Self::Rose, false) => ([0xBA, 0x3E, 0x63], [0x9B, 0x2E, 0x50]),
+            (Self::Amber, false) => ([0x95, 0x65, 0x15], [0x76, 0x50, 0x0D]),
+            (Self::Teal, true) => ([0x58, 0xD4, 0xC8], [0x83, 0xE0, 0xD7]),
+            (Self::Blue, true) => ([0x91, 0xB1, 0xFF], [0xB0, 0xC6, 0xFF]),
+            (Self::Violet, true) => ([0xBA, 0xA0, 0xFF], [0xD2, 0xC0, 0xFF]),
+            (Self::Rose, true) => ([0xF4, 0x9A, 0xBD], [0xFA, 0xBE, 0xD4]),
+            (Self::Amber, true) => ([0xEE, 0xC6, 0x6B], [0xF5, 0xD9, 0x99]),
+        };
+        (Color32::from_rgb(accent[0], accent[1], accent[2]), Color32::from_rgb(ink[0], ink[1], ink[2]))
+    }
+}
+
+impl From<String> for Accent {
+    fn from(s: String) -> Self {
+        Self::from_code(&s).unwrap_or_default()
+    }
+}
+
+impl From<Accent> for String {
+    fn from(a: Accent) -> Self {
+        a.code().to_string()
+    }
+}
 
 /// The interface theme setting (File › Options › General, View › Interface Theme): a fixed light or
 /// dark palette, or `System`, which follows the OS light/dark appearance live (#115). Dark page
@@ -242,20 +310,20 @@ impl Tokens {
     pub fn light() -> Self {
         Tokens {
             dark: false,
-            title_bar: Color32::from_rgb(0xF0, 0xF0, 0xF0),
-            ribbon: Color32::from_rgb(0xF9, 0xF9, 0xF9),
-            tab_strip: Color32::from_rgb(0xF0, 0xF0, 0xF0),
-            canvas: Color32::from_rgb(0xE6, 0xE6, 0xE6),
-            panel: Color32::from_rgb(0xFA, 0xFA, 0xFA),
-            border: Color32::from_rgb(0xE1, 0xE1, 0xE1),
-            border_strong: Color32::from_rgb(0xC8, 0xC8, 0xC8),
-            text: Color32::from_rgb(0x24, 0x24, 0x24),
-            text_dim: Color32::from_rgb(0x61, 0x61, 0x61),
+            title_bar: Color32::from_rgb(0xF0, 0xF4, 0xF5),
+            ribbon: Color32::from_rgb(0xFA, 0xFC, 0xFC),
+            tab_strip: Color32::from_rgb(0xF0, 0xF4, 0xF5),
+            canvas: Color32::from_rgb(0xE5, 0xEB, 0xED),
+            panel: Color32::from_rgb(0xF5, 0xF8, 0xF9),
+            border: Color32::from_rgb(0xD8, 0xE1, 0xE4),
+            border_strong: Color32::from_rgb(0xB5, 0xC3, 0xC8),
+            text: Color32::from_rgb(0x1C, 0x2D, 0x34),
+            text_dim: Color32::from_rgb(0x53, 0x65, 0x6D),
             text_disabled: Color32::from_rgb(0xA8, 0xA8, 0xA8),
             icon: Color32::from_rgb(0x42, 0x42, 0x42),
-            hover: Color32::from_rgb(0xE6, 0xE6, 0xE6),
+            hover: Color32::from_rgb(0xE5, 0xEB, 0xED),
             pressed: Color32::from_rgb(0xD6, 0xD6, 0xD6),
-            checked: Color32::from_rgb(0xDD, 0xE3, 0xF8),
+            checked: Color32::from_rgb(0xD9, 0xED, 0xEE),
             accent: APP_COLOR,
             accent_text: APP_INK,
             on_accent: Color32::WHITE,
@@ -265,8 +333,8 @@ impl Tokens {
             ruler: Color32::from_rgb(0xFF, 0xFF, 0xFF),
             ruler_margin: Color32::from_rgb(0xD4, 0xD4, 0xD4),
             ruler_tick: Color32::from_rgb(0x70, 0x70, 0x70),
-            status_bar: Color32::from_rgb(0xF0, 0xF0, 0xF0),
-            selection: Color32::from_rgba_unmultiplied(0x3B, 0x5B, 0xDB, 0x48),
+            status_bar: Color32::from_rgb(0xF0, 0xF4, 0xF5),
+            selection: Color32::from_rgba_unmultiplied(0x08, 0x7F, 0x8C, 0x48),
             find_highlight: Color32::from_rgba_unmultiplied(0xFF, 0xE0, 0x3D, 0x90),
             caret: Color32::BLACK,
             page_shadow: Color32::from_rgba_unmultiplied(0, 0, 0, 0x22),
@@ -282,46 +350,81 @@ impl Tokens {
     pub fn dark() -> Self {
         Tokens {
             dark: true,
-            title_bar: Color32::from_rgb(0x1F, 0x1F, 0x1F),
-            ribbon: Color32::from_rgb(0x29, 0x29, 0x29),
-            tab_strip: Color32::from_rgb(0x1F, 0x1F, 0x1F),
-            canvas: Color32::from_rgb(0x14, 0x14, 0x14),
-            panel: Color32::from_rgb(0x26, 0x26, 0x26),
-            border: Color32::from_rgb(0x3A, 0x3A, 0x3A),
-            border_strong: Color32::from_rgb(0x55, 0x55, 0x55),
-            text: Color32::from_rgb(0xEE, 0xEE, 0xEE),
-            text_dim: Color32::from_rgb(0xC8, 0xC8, 0xC8),
+            title_bar: Color32::from_rgb(0x18, 0x23, 0x29),
+            ribbon: Color32::from_rgb(0x20, 0x2D, 0x34),
+            tab_strip: Color32::from_rgb(0x18, 0x23, 0x29),
+            canvas: Color32::from_rgb(0x10, 0x19, 0x1F),
+            panel: Color32::from_rgb(0x1D, 0x29, 0x30),
+            border: Color32::from_rgb(0x37, 0x49, 0x52),
+            border_strong: Color32::from_rgb(0x59, 0x6C, 0x76),
+            text: Color32::from_rgb(0xEF, 0xF4, 0xF5),
+            text_dim: Color32::from_rgb(0xB5, 0xC3, 0xC8),
             text_disabled: Color32::from_rgb(0x6A, 0x6A, 0x6A),
             icon: Color32::from_rgb(0xDD, 0xDD, 0xDD),
             hover: Color32::from_rgb(0x3D, 0x3D, 0x3D),
             pressed: Color32::from_rgb(0x4A, 0x4A, 0x4A),
-            checked: Color32::from_rgb(0x2E, 0x3A, 0x66),
-            accent: Color32::from_rgb(0x7A, 0x93, 0xF0),
-            accent_text: Color32::from_rgb(0x9C, 0xB0, 0xF5),
-            // Dark text on the light dark-theme accent: white on #7a93f0 is only 2.9:1 (#655).
-            on_accent: Color32::from_rgb(0x11, 0x16, 0x2E),
-            input: Color32::from_rgb(0x1E, 0x1E, 0x1E),
+            checked: Color32::from_rgb(0x24, 0x4A, 0x4C),
+            accent: Color32::from_rgb(0x58, 0xD4, 0xC8),
+            accent_text: Color32::from_rgb(0x83, 0xE0, 0xD7),
+            // Dark text keeps filled controls readable on the bright dark-theme accent.
+            on_accent: Color32::from_rgb(0x10, 0x19, 0x1F),
+            input: Color32::from_rgb(0x16, 0x21, 0x28),
             input_border: Color32::from_rgb(0x7A, 0x7A, 0x7A),
             group_label: Color32::from_rgb(0xA0, 0xA0, 0xA0),
             ruler: Color32::from_rgb(0x2E, 0x2E, 0x2E),
             ruler_margin: Color32::from_rgb(0x45, 0x45, 0x45),
             ruler_tick: Color32::from_rgb(0xA0, 0xA0, 0xA0),
-            status_bar: Color32::from_rgb(0x1F, 0x1F, 0x1F),
-            selection: Color32::from_rgba_unmultiplied(0x7A, 0x93, 0xF0, 0x55),
+            status_bar: Color32::from_rgb(0x18, 0x23, 0x29),
+            selection: Color32::from_rgba_unmultiplied(0x58, 0xD4, 0xC8, 0x55),
             find_highlight: Color32::from_rgba_unmultiplied(0xC8, 0xA8, 0x00, 0x70),
             caret: Color32::BLACK,
             page_shadow: Color32::from_rgba_unmultiplied(0, 0, 0, 0x60),
             handle: Color32::from_rgb(0xF2, 0xF2, 0xF2),
             handle_shadow: Color32::from_rgba_unmultiplied(0, 0, 0, 0x5A),
-            menu: Color32::from_rgb(0x2B, 0x2B, 0x2B),
+            menu: Color32::from_rgb(0x23, 0x30, 0x38),
             blue: Color32::from_rgb(0x6C, 0x9B, 0xEA),
             red: Color32::from_rgb(0xEE, 0x6A, 0x6A),
             green: Color32::from_rgb(0x5B, 0xC0, 0x8A),
             orange: Color32::from_rgb(0xF0, 0xA0, 0x50),
         }
     }
+    /// Apply the accent to every related state. High contrast retains the chosen accent but uses
+    /// opaque surfaces and strong outlines; document colours and output are never affected.
+    pub fn customised(dark: bool, accent: Accent, high_contrast: bool) -> Self {
+        let mut t = if dark { Self::dark() } else { Self::light() };
+        (t.accent, t.accent_text) = accent.colours(dark);
+        t.on_accent = if dark { Color32::from_rgb(0x10, 0x19, 0x1F) } else { Color32::WHITE };
+        let rgb = t.accent.to_array();
+        t.selection = Color32::from_rgba_unmultiplied(rgb[0], rgb[1], rgb[2], if dark { 0x55 } else { 0x48 });
+        let weight = if dark { 22 } else { 14 };
+        let ch = |x: u8, y: u8| ((u16::from(x) * (100 - weight) + u16::from(y) * weight) / 100) as u8;
+        t.checked = Color32::from_rgb(ch(t.ribbon.r(), t.accent.r()), ch(t.ribbon.g(), t.accent.g()), ch(t.ribbon.b(), t.accent.b()));
+        if high_contrast {
+            let surface = if dark { Color32::BLACK } else { Color32::WHITE };
+            let ink = if dark { Color32::WHITE } else { Color32::BLACK };
+            t.title_bar = surface;
+            t.ribbon = surface;
+            t.tab_strip = surface;
+            t.panel = surface;
+            t.menu = surface;
+            t.status_bar = surface;
+            t.input = surface;
+            t.ruler = surface;
+            t.text = ink;
+            t.text_dim = ink;
+            t.icon = ink;
+            t.group_label = ink;
+            t.border = ink;
+            t.border_strong = ink;
+            t.input_border = ink;
+            t.ruler_tick = ink;
+        }
+        t
+    }
+
     pub fn get(ctx: &egui::Context) -> Tokens {
-        if ctx.global_style().visuals.dark_mode { Tokens::dark() } else { Tokens::light() }
+        let (accent, high_contrast) = ctx.data(|d| d.get_temp::<(Accent, bool)>(egui::Id::new("not_word_palette"))).unwrap_or_default();
+        Self::customised(ctx.global_style().visuals.dark_mode, accent, high_contrast)
     }
 }
 
@@ -567,8 +670,15 @@ fn tracked_job(text: &str, font: &FontId, tracking: f32, color: Color32) -> egui
 /// Setting a concrete theme for `System` would pin the native window too, and macOS then stops
 /// reporting appearance changes (#311).
 pub fn apply(ctx: &egui::Context, appearance: Appearance) {
-    ctx.set_visuals_of(egui::Theme::Light, visuals(&Tokens::light()));
-    ctx.set_visuals_of(egui::Theme::Dark, visuals(&Tokens::dark()));
+    apply_customised(ctx, appearance, Accent::default(), false);
+}
+
+/// Install both palettes, keeping the system appearance live and storing the same configuration
+/// for hand-painted widgets. Reapply only when one of the three settings changes.
+pub fn apply_customised(ctx: &egui::Context, appearance: Appearance, accent: Accent, high_contrast: bool) {
+    ctx.data_mut(|d| d.insert_temp(egui::Id::new("not_word_palette"), (accent, high_contrast)));
+    ctx.set_visuals_of(egui::Theme::Light, visuals(&Tokens::customised(false, accent, high_contrast)));
+    ctx.set_visuals_of(egui::Theme::Dark, visuals(&Tokens::customised(true, accent, high_contrast)));
     ctx.all_styles_mut(|s| {
         s.spacing.item_spacing = egui::vec2(6.0, 4.0);
         s.spacing.button_padding = egui::vec2(8.0, 3.0);
@@ -652,6 +762,39 @@ mod tests {
         };
         let (x, y) = (lum(a), lum(b));
         (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    #[test]
+    fn every_accent_is_readable_in_both_themes_and_high_contrast() {
+        for accent in super::Accent::ALL {
+            for dark in [false, true] {
+                for high in [false, true] {
+                    let t = super::Tokens::customised(dark, accent, high);
+                    for bg in [t.accent, t.accent_text] {
+                        assert!(contrast(t.on_accent, bg) >= 4.5, "{accent:?}, dark={dark}, high={high}: filled control text");
+                    }
+                    for bg in [t.panel, t.ribbon, t.menu, t.title_bar] {
+                        assert!(contrast(t.text, bg) >= 4.5, "{accent:?}, dark={dark}, high={high}: body text");
+                        assert!(contrast(t.accent_text, bg) >= 4.5, "{accent:?}, dark={dark}, high={high}: accent text");
+                        assert!(contrast(t.input_border, bg) >= 3.0, "{accent:?}, dark={dark}, high={high}: outlines");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn painted_tokens_and_egui_visuals_share_the_custom_palette() {
+        let ctx = egui::Context::default();
+        for accent in super::Accent::ALL {
+            super::apply_customised(&ctx, super::Appearance::Dark, accent, true);
+            ctx.run_ui(egui::RawInput::default(), |_| {}).drop_without_applying_deltas();
+            let t = super::Tokens::get(&ctx);
+            assert!(t.dark);
+            assert_eq!(t.accent, super::Tokens::customised(true, accent, true).accent);
+            assert_eq!(t.panel, egui::Color32::BLACK);
+            assert_eq!(ctx.global_style().visuals.hyperlink_color, t.accent_text);
+        }
     }
 
     /// #655: text and knobs on filled accent controls (Share, avatar, AutoSave, keytips) reach 4.5:1

@@ -264,18 +264,18 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     resp.on_hover_text(format!("{} — set your name in File › Options", app.session.author));
                     ui.add_space(8.0);
                     if app.ui.show_discord {
-                        let (r, resp) = ui.allocate_exact_size(vec2(84.0, 22.0), Sense::click());
+                        let (r, resp) = ui.allocate_exact_size(vec2(96.0, 22.0), Sense::click());
                         ui.painter().rect_filled(r, 11.0, if resp.hovered() { t.accent_text } else { t.accent });
                         icons::paint(
                             ui.painter(),
                             Rect::from_center_size(pos2(r.min.x + 13.0, r.center().y), vec2(14.0, 14.0)),
-                            "discord",
+                            "community",
                             t.on_accent,
                             t.on_accent,
                         );
-                        ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, tl!("Discord"), medium(11.5), t.on_accent);
-                        if resp.on_hover_text(tl!("Join the ArtCraft community on Discord")).clicked() {
-                            let _ = app.run("ui.discord", json!({}));
+                        ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, tl!("Community"), medium(11.5), t.on_accent);
+                        if resp.on_hover_text(tl!("Not Word community and feedback")).clicked() {
+                            let _ = app.run("ui.community", json!({}));
                         }
                         ui.add_space(8.0);
                     }
@@ -342,6 +342,26 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                 );
             }
         });
+}
+
+/// Focus keeps the title and save controls available while replacing the ribbon and hiding
+/// side panes. Exit restores their existing visibility instead of rebuilding a default layout.
+pub fn focus_bar(app: &mut WordApp, ui: &mut Ui) {
+    let t = Tokens::get(ui.ctx());
+    egui::Panel::top("focus_bar").exact_size(36.0).frame(egui::Frame::NONE.fill(t.panel).inner_margin(egui::Margin::symmetric(14, 0))).show(
+        ui,
+        |ui| {
+            ui.horizontal_centered(|ui| {
+                ui.label(egui::RichText::new(tl!("Focus")).font(semibold(12.5)).color(t.accent_text));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button(tl!("Exit Focus")).on_hover_text("Escape").clicked() {
+                        let _ = app.run("view.focus", json!({"value": false}));
+                        app.canvas.want_focus = true;
+                    }
+                });
+            });
+        },
+    );
 }
 
 pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {

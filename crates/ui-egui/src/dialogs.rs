@@ -1196,7 +1196,7 @@ impl Dialog {
         })
     }
 
-    /// Paste Special for a clipboard payload (`text`, `html`, `rtf`; empty = WordCraft's own copy).
+    /// Paste Special for a clipboard payload (`text`, `html`, `rtf`; empty = Not Word's own copy).
     pub fn paste_special(app: &WordApp, payload: &Value) -> Dialog {
         let formats: Vec<String> = wordcraft_engine::cmd::paste::available(&app.session, payload).into_iter().map(str::to_string).collect();
         let mut kept = json!({});
@@ -1342,8 +1342,8 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         Dialog::Refs(d) => d.title(),
         Dialog::Icons { .. } => "Icons",
         Dialog::PasteSpecial { .. } => "Paste Special",
-        Dialog::About { .. } => "About WordCraft",
-        Dialog::SaveChanges { .. } => "WordCraft",
+        Dialog::About { .. } => "About Not Word",
+        Dialog::SaveChanges { .. } => "Not Word",
         Dialog::RecipientList { .. } => "Recipient List",
         Dialog::SelectTable { .. } => "Select Table",
         Dialog::InsertMergeField { .. } => "Insert Merge Field",
@@ -2248,6 +2248,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 reg.all().iter().filter(|c| command_matches(c, query)).collect()
             };
             hits.truncate(14);
+            let settings = crate::workspace::actions(app, query);
             let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
             let mut run: Option<&str> = enter.then(|| hits.first().map(|c| c.id)).flatten();
             for c in &hits {
@@ -2257,20 +2258,28 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                     run = Some(c.id);
                 }
             }
+            let mut setting = if enter && hits.is_empty() { settings.first() } else { None };
+            for action in &settings {
+                if ui.add(egui::Button::new(&action.label).min_size(vec2(380.0, 0.0))).clicked() {
+                    setting = Some(action);
+                }
+            }
             // Search also finds the words in the document (the Navigation pane's results).
             let text = query.trim().to_string();
             let mut find = false;
             if !text.is_empty() {
                 ui.separator();
                 let label = crate::i18n::fmt(tl!("Find “{text}” in the document"), &[("text", &text)]);
-                find = ui.add(egui::Button::new(label).min_size(vec2(380.0, 0.0))).clicked() || (enter && hits.is_empty());
+                find = ui.add(egui::Button::new(label).min_size(vec2(380.0, 0.0))).clicked() || (enter && hits.is_empty() && settings.is_empty());
             }
             if let Some(id) = run {
                 let _ = app.run(id, json!({}));
+            } else if let Some(action) = setting {
+                let _ = app.run(action.command, action.params.clone());
             } else if find {
                 find_in_navigation_pane(app, ui.ctx(), &text);
             }
-            run.is_some() || find || ui.input(|i| i.key_pressed(egui::Key::Escape))
+            run.is_some() || setting.is_some() || find || ui.input(|i| i.key_pressed(egui::Key::Escape))
         }
         Dialog::Icons { query, category, selected } => icons_body(app, ui, query, category, selected),
         Dialog::PasteSpecial { formats, choice, payload, note } => {
@@ -2324,16 +2333,16 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 1 => crate::credits::contributors_ui(ui),
                 2 => crate::credits::models_ui(ui),
                 _ => {
-                    ui.label(egui::RichText::new(tl!("WordCraft")).font(semibold(22.0)));
+                    ui.label(egui::RichText::new(tl!("Not Word")).font(semibold(22.0)));
                     let build = option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));
                     ui.label(crate::i18n::fmt(tl!("Version {version} ({build})"), &[("version", env!("CARGO_PKG_VERSION")), ("build", build)]));
                     ui.label(tl!(
-                        "A free, open-source word processor written from scratch in Rust.\nPart of the Crafting Apps from the ArtCraft team."
+                        "An independent, open-source word processor built in Rust.\nWrite, review and automate documents locally, with a workspace that fits you."
                     ));
                     ui.add_space(6.0);
-                    ui.hyperlink_to(tl!("getartcraft.com/apps/wordcraft"), "https://getartcraft.com/apps/wordcraft");
-                    ui.hyperlink_to(tl!("Join us on Discord: discord.gg/artcraft"), "https://discord.gg/artcraft");
-                    ui.hyperlink_to(tl!("Source code: github.com/storytold/wordcraft"), "https://github.com/storytold/wordcraft");
+                    ui.label(tl!("Maintained by Itskorrah. Based on the WordCraft open-source project."));
+                    ui.hyperlink_to(tl!("Community and feedback"), "https://github.com/Itskorrah/not-word/discussions");
+                    ui.hyperlink_to(tl!("Source code: github.com/Itskorrah/not-word"), "https://github.com/Itskorrah/not-word");
                     ui.add_space(6.0);
                     ui.label(
                         egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors."))
@@ -2460,7 +2469,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             });
             ui.label(
                 egui::RichText::new(tl!(
-                    "Keep the password somewhere safe: without it nobody, WordCraft included, can open the document. Leave both boxes empty to remove the password."
+                    "Keep the password somewhere safe: without it nobody, Not Word included, can open the document. Leave both boxes empty to remove the password."
                 ))
                 .small()
                 .weak(),
