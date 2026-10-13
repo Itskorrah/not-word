@@ -1,14 +1,19 @@
 # UI parity with Microsoft Word
 
+> **Inherited assessment.** The dated measurements, percentages, effort estimates and issue/PR
+> numbers below come from the upstream WordCraft project. They are retained as engineering
+> context, not newly verified Not Word compatibility claims. Check current source/tests before
+> acting on an old gap; current fork work is recorded in [engineering-log.md](engineering-log.md).
+
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** trivial (selection bar in the left margin, #856; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously major: first version; ribbon, dialogs, shortcuts and on-canvas interaction measured from `crates/ui-egui` and the command registry) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
-How WordCraft looks and feels next to Word: ribbon, dialogs, panes, keyboard, mouse and touch.
+How Not Word looks and feels next to Word: ribbon, dialogs, panes, keyboard, mouse and touch.
 Typing behaviour has its own checklist ([`typing-parity.md`](typing-parity.md)). All assets are our
 own (`AGENTS.md`: no Microsoft iconography, ever).
 
 **Dimension: ~65% (estimated), 61–94 h to full** (the sum of the rows below; dialog depth is counted here, not under features).
 
-| Area | WordCraft | Word | Parity | Hours |
+| Area | Not Word | Word | Parity | Hours |
 |---|---|---|---|---|
 | Ribbon tabs and groups | All Word tabs including contextual Table Design/Layout, Picture Format, Shape Format, Header & Footer, Equation, Outlining (Outline view, #493); ribbon overflow (#43, #129). Draw tab: Select, Eraser, Pen, Pencil, Highlighter with colour and thickness (#307); Lasso (drag to move, Delete, recolour), Add Pen gallery (right-click to remove), Ink to Shape, Ink Replay with play/pause/rewind/forward bar (#395); missing: Ink to Math | Same plus Draw | 85% | (Draw in features) |
 | Keytips (Alt / F10) | Ribbon badges (#43) and numbered Quick Access Toolbar badges in the user's button order (#620); File › Options › Advanced › Display switch saved per user (`ui.keytips`); Alt leaves macOS Option typing alone | ✅ | 85% | 1–2 |
@@ -37,10 +42,24 @@ own (`AGENTS.md`: no Microsoft iconography, ever).
 | Interface themes (light, dark, system #249, follows OS changes live #311), dark page separate from the interface theme (#194, #312) | ✅ | ✅ | 90% | — |
 | Interface size (File › Options › General, 80–200 %, on top of the system display scale; `ui.interfaceSize`) (#475) | ✅ | system display scaling only | 100% | — |
 | Animation effects (File › Options › Accessibility: Use system setting, On, Off; `ui.animations`). Off: a wheel notch scrolls at once; Ctrl+wheel zooms in whole steps, each drawn finished in its own frame (a notch at once; touchpad pinches and high-resolution wheels in steps of about 10% rather than gliding); menus, buttons and the scroll to the caret neither fade nor glide | ✅ "Use system setting" reads Windows (Animation effects), macOS (Reduce motion), the Linux/BSD desktops (settings portal: the cross-desktop reduced-motion preference, GNOME's switch, KDE's animation speed; the GTK and KDE settings files where no portal answers) and browsers (`prefers-reduced-motion`), and follows a change while running. Run on Windows and against a stand-in portal on Linux; not yet tried on a Mac or a real GNOME or KDE session | not compared | 90% | 0.5–1 |
-| File dialogs (Open, Save As, Export, Insert Picture) | system dialog, without blocking the window (#94); Linux/BSD without a file chooser portal or zenity: WordCraft's own browser, also File › Open › Browse in WordCraft… (#576) | system dialog | 95% | — |
+| File dialogs (Open, Save As, Export, Insert Picture) | system dialog, without blocking the window (#94); Linux/BSD without a file chooser portal or zenity: Not Word's own browser, also File › Open › Browse in Not Word… (#576) | system dialog | 95% | — |
 | Platform conventions (macOS menus/traffic lights #255, Windows title bar, Linux CSD on Wayland #78) | partial | native | 70% | 3–5 |
 | Screen readers (VoiceOver, Narrator, Orca) | AccessKit on; the document canvas describes paragraphs, headings (level), list items, tables, links, pictures (alt text) and the caret and selection, for the pages on screen (#488); not yet tried with real screen readers | full | 50% | 5–8 |
 | Right-to-left (mirrored) interface | ❌ | ✅ (Arabic, Hebrew Word) | 0% | in localization |
+
+## Not Word workspace and visual changes
+
+The fork adds a teal default with refined light/dark tokens, five selectable accents, high
+contrast and six workspace presets. Actual pane/ribbon arrangements persist across restarts;
+Focus temporarily hides the workspace and restores it on exit. Editing presets return from
+Read Mode/Outline to Print Layout so the selected ribbon is available. All three new commands
+(`ui.accent`, `ui.highContrast`, `ui.workspace`) are discoverable through command search and
+automation metadata.
+
+[customization.md](customization.md) documents the settings and layouts, and
+[engineering-log.md](engineering-log.md) records focused tests and actual visual checks.
+These improvements do not close untested screen-reader or native platform behavior gaps or
+increase the inherited compatibility estimate.
 
 ## Revision history
 

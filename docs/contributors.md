@@ -1,55 +1,50 @@
-# Contributors in the About window
+# Contributors and provenance
 
-**About ▸ Contributors** credits everyone who contributed to WordCraft, and **About ▸ Models** credits
-the AI models named in `Co-Authored-By` trailers. This follows the shared craftrules standard
-[`standards/contributors.md`](https://github.com/storytold/craftrules/blob/main/standards/contributors.md);
-this page is the local copy of the decision.
+Not Word is maintained by [Itskorrah](https://github.com/Itskorrah) and derives from WordCraft.
+The About window retains upstream contributor and model credits. Product maintenance and
+original authorship are different facts: rebranding does not transfer authorship of existing work.
 
-## Decision
+## Credit data
 
-- Two files, both **compiled into the binary** by the UI crate's `build.rs` (nothing is read from
-  disk or the network at run time; the web build has them too):
-  - [`contributors/contributors.json`](../contributors/contributors.json): commit stats per GitHub
-    username. **Generated** by `craftrules/scripts/contributors.py`; never hand-edit.
-  - [`contributors/people.toml`](../contributors/people.toml): the names people chose for
-    themselves. **Each contributor adds only their own entry**, in their own PR.
-- Each contributor gets one line: GitHub username (always), display name (opt-in, or their synced
-  GitHub profile name), real name (only if they told us), merged PRs, commits, lines added, lines
-  deleted, binary assets added, binary assets removed, first and last commit date.
-- The list is shown as a **grab bag** (names flowing as text) or a **table**, in the same order. It
-  sorts by name, PRs, commits, lines added, lines deleted, line delta, binary assets added/removed,
-  first or last commit date. The name toggle cycles **Username → Display name → Real name**; a
-  missing name falls back to `@username`. Alphabetical sorting is case-insensitive and ignores the `@`.
+Two files are compiled into the UI binary by `crates/ui-egui/build.rs`, including browser builds;
+no network request is needed to display them:
 
-## In WordCraft
+- [`contributors/contributors.json`](../contributors/contributors.json) contains generated
+  historical commit statistics by GitHub username. Do not hand-edit or replace it with an
+  invented contributor list.
+- [`contributors/people.toml`](../contributors/people.toml) contains names contributors chose
+  to share. A contributor adds their own entry in their own change; never infer names from
+  author emails or copy someone else's profile without consent.
 
-- The About window is `Dialog::About` in `crates/ui-egui/src/dialogs.rs` (Help, or Backstage ▸ About); `ui.dialog {"name":"contributors"}` / `"models"` opens a tab.
+About offers Contributors and Models tabs, flowing names or a table, sorting and display-name
+choices. Missing optional names fall back to GitHub usernames. `ui.dialog` with
+`{"name":"contributors"}` or `{"name":"models"}` opens the relevant tab.
 
-## Credit yourself
+## Add your chosen name
 
-Add your entry to `contributors/people.toml` in a PR you commit yourself (every field optional):
+Every field is optional:
 
 ```toml
 [people.your-github-username]
 real_name = "Your Name"
 display_name = "Nickname"
-sync_github_name = true   # use the name on your public GitHub profile as display name
+sync_github_name = true
 ```
 
-or, with craftrules checked out next to `craft-apps/`:
+Add only your own entry and commit it under your own identity. Removing your entry removes
+those optional names from future refreshes; your historical contribution credit remains.
+Never fabricate consent or modify another contributor's entry during a product rebrand.
 
-```sh
-python3 ../../craftrules/scripts/contributors.py --add-me . --real-name "Your Name" --sync-github-name
-```
+## Generated statistics
 
-Names show after the next refresh: the script checks that each entry was committed by its own
-user (or by a maintainer with a `consent_source`). Delete your entry to remove your names.
+The current dataset and its provenance came from the upstream contribution tooling in
+[`storytold/craftrules`](https://github.com/storytold/craftrules). Its
+[`scripts/contributors.py`](https://github.com/storytold/craftrules/blob/main/scripts/contributors.py)
+can refresh/verify data when explicitly available and configured for this fork; it is not a
+required sibling checkout for building Not Word. Review the tool's identity/consent checks and
+repository scope before running it. Preserve inherited historical data during ordinary coding
+work and keep the source of any future refresh explicit.
 
-## Refreshing (maintainers)
-
-```sh
-python3 ../../craftrules/scripts/contributors.py .           # regenerate + verify; needs git, Python 3.11+, gh
-python3 ../../craftrules/scripts/contributors.py --check .   # verify people.toml only
-```
-
-Commit the updated `contributors/contributors.json`. Git author names and emails are never recorded.
+Required legal and asset credit remain in [NOTICE](../NOTICE),
+[ATTRIBUTION.md](../ATTRIBUTION.md), [LICENSE-MIT](../LICENSE-MIT) and
+[LICENSE-APACHE](../LICENSE-APACHE).

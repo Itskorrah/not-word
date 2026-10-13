@@ -1,137 +1,55 @@
-# WordCraft roadmap
+# Not Word roadmap
 
-**Stage: alpha** · next: beta, ~15 points (60% → 75% ready for real work) and ~150–230 h away
+**Stage: alpha.** Not Word is an independent fork maintained by Itskorrah. The current goal is
+reliable daily writing and document exchange, with a configurable native interface and useful
+headless automation. Complete Microsoft Word parity remains an aspiration, not a release claim.
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** trivial (progress log: symbol fonts, #776; previously trivial: the save prompt answers from the keyboard, #861; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: formatting revisions landed, #41; previously trivial: Draw tab ink, #307, and Draw Table and Eraser, #303, landed: catalog 402/434; previously minor: readiness table with hours per audience; full number back to the additive weighted sum, 60%; mainstream and essentials numbers added; alpha gate checked; previously major: full re-measure against Word for Mac 16.113.4; restructured to the craftrules progress-docs standard) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+## Priorities
 
-> **Printing update:** 2026-10-12 · direct desktop printing through craft-print; details below.
-
-WordCraft aims for complete parity with Microsoft Word, then goes further on speed, openness and
-agent control. This page is the summary; the assessment is
-[`docs/target-app-parity.md`](docs/target-app-parity.md), the work list is
-[`docs/gaps.md`](docs/gaps.md), and milestones and the current focus are in
-[`docs/roadmap.md`](docs/roadmap.md).
-
-## Headline numbers (2026-10-10)
-
-| Number | Value | Kind |
+| Priority | Outcome | Evidence needed |
 |---|---|---|
-| Ribbon/menu catalog coverage | **487 / 502 (97.0%)** | measured (`cargo xtask parity` → [`docs/parity-checklist.md`](docs/parity-checklist.md)) |
-| **Feature breadth** (weighted, incl. dialog options, styles, languages beyond the ribbon) | **~80%** | estimated |
-| **Ready for real work** (full target) | **~60%** (55–63%) | estimated, additive weighted sum over the dimensions |
-| **Mainstream practitioner** | **~55%** | estimated: weekly-work depth × discounts for interaction (×0.93), stability (×0.90), file exchange (×0.90) |
-| **Essentials user** | **~63%** | estimated: core-feature depth × discounts for launch (×0.90), discoverability (×0.95), opening received files (×0.92) |
-| Remaining to **beta** | **~150–230 h** of Opus 5.5 agent wall-clock (gaps #1–#7) | estimated |
-| Remaining to **full parity** with Word desktop | **~750–1,250 h** (70–80% parallelizable) | estimated |
-| Commands / tests / code | 433 commands · 855 tests + 10 property blocks · ~88,700 lines of Rust | measured (source) |
-| Releases | v0.4.0 (2026-10-10): signed macOS universal DMG, Windows MSI x64/x86/arm64, Linux AppImage/deb/rpm/Flatpak x86_64 + aarch64, FreeBSD, web | measured |
+| P0 | Preserve users' documents and recovery data | Hostile-input tests, safe-write failures, save/reopen and recovery regressions |
+| P1 | Independent Not Word identity | Original attributed assets, correct app/packaging/docs names and retained legal provenance |
+| P2 | Correctness and measured performance | Focused tests, representative benchmarks and maintained crate boundaries |
+| P3 | Modern, configurable interface | Real UI screenshots, keyboard behavior and preferences migration tests |
+| P4 | Better interoperability and document workflows | Synthetic and redistributable DOCX fixtures, round-trip structure checks and useful automation |
 
-Hours are calibrated from this repo's PRs (equations #191: ~9.7k lines in ~5 h; `.doc` reader
-#145: ~4.5k lines in ~10 h; layout fidelity PRs run 5–10× slower per line). The earlier "≈120–150 h
-to 100%" (2026-10-06) left out localization, multilingual proofing, ecosystem, hardware, PDF Reflow
-and `.doc` writing, and priced the DOCX corpus at 10 h; see
-[methodology](docs/target-app-parity.md#methodology). The three readiness numbers, their weights,
-discounts and the user evidence (120 issues from outside users, 4 praise, 0 "switched from Word",
-~21 open core-path bugs) are in
-[readiness numbers](docs/target-app-parity.md#readiness-numbers-full-mainstream-practitioner-essentials-user).
+Completed fork work and its verification are recorded in
+[docs/engineering-log.md](docs/engineering-log.md). Detailed next steps are in
+[docs/roadmap.md](docs/roadmap.md). Keep source claims separate from completed validation.
 
-| Audience | Ready | Opus 5.5 agent wall-clock hours to ~95% | Work that dominates |
-|---|---|---|---|
-| Full target (ready for real work) | **~60%** | **~650–1,100 h** (70–80% parallelizes) | Breadth: charts/SmartArt/Draw, localization and proofing languages, East Asian and RTL typography, `.doc` writing, PDF Reflow, ecosystem; plus everything below |
-| Mainstream practitioner | **~55%** | **~300–500 h** (~65% parallelizes) | DOCX real-world fidelity and preserving charts/SmartArt, pagination fidelity, formatting revisions, dialog depth, objects, stability |
-| Essentials user | **~63%** | **~90–140 h** (~50% parallelizes) | Install/launch stability, opening files people send (corpus subset, chart fallbacks), native printing, picture handling, English spelling depth |
+## Release readiness
 
-**Why alpha:** the core workflows (write, format, styles, lists, tables, references, review, mail
-merge, open and save .docx) work end to end and ship as signed builds on every desktop platform
-and the web. **Why not beta:** DOCX has never been tested on real-world files; charts, SmartArt and
-OLE objects are dropped silently; pagination differs from Word (no Aptos-metric font, no column
-balancing or footnote continuation); content controls are lost; there is open field evidence of
-a startup crash and several hangs; no native printing. Gaps #1–#7 in [`docs/gaps.md`](docs/gaps.md)
-are the beta list. All six core workflows pass the
-[alpha gate](docs/roadmap.md#alpha-gate-core-workflows) end to end on macOS, with save and reopen;
-the two partial ones (real-world .docx, printing) complete, roughly.
+A registered ribbon command is a measure of catalog breadth. It does not establish fidelity,
+error handling, discoverability or performance. The generated
+[command checklist](docs/parity-checklist.md) and inherited
+[parity assessment](docs/target-app-parity.md) remain useful, but their historical percentages
+are not current fork readiness measurements.
 
-## By dimension
+Before a beta claim, establish a legally redistributable document corpus; validate open →
+edit → save → reopen; test unsupported content preservation; exercise autosave and recovery;
+measure large-document layout/rendering; and verify native/browser integrations on their
+actual platforms. A Linux headless test cannot certify macOS, Windows, printing or accessibility.
 
-| Dimension | Parity | Hours to full | Doc |
-|---|---|---|---|
-| Features (depth) | 68% | 210–335 | [target-app-parity.md](docs/target-app-parity.md#feature-areas) |
-| UI/UX fidelity | 65% | 65–100 | [ui-parity.md](docs/ui-parity.md) · [typing-parity.md](docs/typing-parity.md) |
-| File formats | 60% | 185–300 | [file-format-parity.md](docs/file-format-parity.md) |
-| Layout and pagination fidelity | 55% | 90–145 | [layout-parity.md](docs/layout-parity.md) |
-| Hardware | 40% | 20–40 | [hardware-parity.md](docs/hardware-parity.md) |
-| Localization | 27% | 75–120 + native review | [localization-parity.md](docs/localization-parity.md) |
-| Performance | 75% | 10–20 | [layout-parity.md](docs/layout-parity.md#performance) |
-| Stability | 50% | 25–45 | [gaps.md](docs/gaps.md) (#3) |
-| Platforms | 95% (beyond Word on Linux, BSD, web) | 5–10 | this page |
-| Ecosystem and plugins | 15% | 40–80 + owner decisions | [gaps.md](docs/gaps.md) (#22) |
-| AI features | 40% (beyond Word for external agents; no in-app assistant) | 15–30 | [gaps.md](docs/gaps.md) (#25) |
+| Area | Detailed evidence / remaining work |
+|---|---|
+| File exchange | [File-format parity](docs/file-format-parity.md), especially DOCX retained parts and unknown structures |
+| Layout and typing | [Layout](docs/layout-parity.md) · [Typing](docs/typing-parity.md) |
+| Interface and accessibility | [UI parity](docs/ui-parity.md) · [Customisation](docs/customization.md) |
+| Languages and platforms | [Localisation](docs/localization-parity.md) · [Hardware](docs/hardware-parity.md) |
+| Automation and architecture | [MCP](docs/mcp.md) · [Architecture](docs/architecture.md) |
+| Ranked inherited gaps | [Gap list](docs/gaps.md); re-check each item against current sources |
 
-## Features
+Builds and releases of upstream WordCraft do not establish published or signed Not Word
+artifacts. Source builds are documented in the [README](README.md); the
+[release guide](docs/releasing.md) describes the remaining packaging and signing checks.
 
-| Area | Parity | Hours |
-|---|---|---|
-| Typing, selection, clipboard, undo, find/replace | 85% | 8–12 |
-| Character and paragraph formatting | 82% | 8–12 |
-| Lists | 78% | 5–8 |
-| Equations | 75% | 4–8 |
-| Tables | 76% | 10–16 |
-| Styles and themes | 74% | 8–12 |
-| Review (comments, track changes, compare, protect) | 72% | 15–25 |
-| View | 72% | 6–10 |
-| Page layout and sections | 70% | 12–20 |
-| Mailings | 70% | 6–10 |
-| Headers, footers, page numbers, fields | 70% | 8–12 |
-| References (TOC, citations, bibliography, captions, index) | 65% | 12–20 |
-| Footnotes and endnotes | 60% | 5–8 |
-| Pictures, shapes, text boxes, WordArt | 60% | 20–30 |
-| Backstage, printing, options | 58% | 12–20 |
-| Right-to-left and complex scripts | 50% | 15–25 |
-| Proofing (spelling, grammar, thesaurus, languages) | 40% | 20–40 |
-| Accessibility | 35% | 15–25 |
-| East Asian typography | 25% | 15–25 |
-| Charts, SmartArt, Draw/ink, 3D models, icons | 3% | 70–110 |
-| Agent control (CLI, MCP, control channel, macros) | beyond Word | — |
+## Inherited WordCraft progress log
 
-Weights and evidence per area: [docs/target-app-parity.md](docs/target-app-parity.md#feature-areas).
-
-## Languages
-
-| Language | Code | Status | UI strings |
-|---|---|---|---|
-| English | en | full | 100% |
-| Simplified Chinese | zh-hans | partial | ~95% |
-| Spanish | es | partial | ~95% |
-| Hindi | hi | none | 0% |
-| Arabic | ar | none (document shaping and bidi work; no mirrored UI) | 0% |
-| French | fr | partial (interface) | ~95% |
-| Portuguese | pt-br (pt-PT none) | partial | ~95% |
-| Indonesian | id | none | 0% |
-| Japanese | ja | partial | ~95% |
-| German | de | partial (#574) | ~95% |
-| Korean | ko | none | 0% |
-| Vietnamese | vi | none | 0% |
-
-Also shipped: Traditional Chinese (`zh-hant`), Ukrainian (`uk`), Serbian (`sr`, `sr-latn`, #250), Russian (`ru`) and Polish (`pl`), all partial (~95%). Bulgarian (`bg`) covers everything the interface audit finds (2,419 entries). Estonian (`et`), Italian (`it`, #594) and Czech (`cs`) now have complete interface catalogs, and Turkish (`tr`) a complete 2,325-entry one (every key of the Russian catalog), all with
-system-locale selection and a saved language choice (Italian also has 51 strings none of the others had yet); Estonian, Turkish, Italian and Czech proofing are not included. Hungarian (`hu`) has a
-complete 2,419-entry catalog, also without proofing.
-Proofing: English, Polish and Portuguese (spelling, grammar, hyphenation), chosen per run from its language. Word ships
-30 interface languages and proofing for ~50. Detail: [docs/localization-parity.md](docs/localization-parity.md).
-
-## Upcoming
-
-Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadmap.md)):
-
-1. Review and merge the ~45 open PRs that already close gaps (owner).
-2. DOCX real-world corpus: open, render, round-trip, compare with Word (30–50 h).
-3. Preserve charts, SmartArt, OLE and ink through a round trip with fallback pictures (10–15 h).
-4. Stability sweep of the open crash, hang and write-failure issues; autosave soak test (20–30 h).
-5. Pagination fidelity: column balancing, footnote continuation, compat options, comparison
-   harness; an Aptos-metric font decision (30–50 h + owner).
-6. Formatting revisions and content controls (12–18 h); native printing (6–10 h); dialog depth
-   (20–30 h).
-
-## Progress log
+The following dated log is retained from the upstream project. WordCraft names and upstream
+issue/PR numbers here describe that history, rather than ownership or delivery by Not Word.
+Measurements were made in the environments recorded by the upstream authors and have not
+all been re-run for this fork. Current changes belong in the engineering log above.
 
 | Date | What landed |
 |---|---|
@@ -268,93 +186,3 @@ Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadm
 | 2026-10-07 | v0.1.0 released; contributor credits in About (#6) |
 | 2026-10-06 | Layout arc: wrap around floats, text boxes, page borders, line numbers, row splitting, drop caps, hyphenation, comment balloons; release pipeline for every platform; first estimate (~62% real feature parity, 120–150 h to 100%) |
 | 2026-10-05 | M0–M12 first versions: model, layout, render, engine with 200+ commands, Word-style UI, DOCX I/O, PDF and other formats, references, review, mailings, CLI, MCP, web |
-
-## Revision history
-
-| Date | Change | Summary |
-|---|---|---|
-| 2026-10-12 | trivial | Progress log: Accept All and Reject All keep the right paragraph marks (#864) |
-| 2026-10-11 | trivial | Progress log: Ctrl, Alt, left-edge and selected-cells table border drags (#711) |
-| 2026-10-11 | trivial | Progress log: table markers on the rulers (#700) |
-| 2026-10-11 | trivial | Progress log: the table context menu |
-| 2026-10-11 | trivial | Progress log: drags and Shift+arrows over table cells select whole cells |
-| 2026-10-11 | trivial | Progress log: table selection areas, insert buttons, move handle and double-click AutoFit; catalog 484/499 |
-| 2026-10-12 | trivial | Progress log: Undo history list (#701) |
-| 2026-10-12 | trivial | Progress log: Start screen at launch (#766) |
-| 2026-10-12 | trivial | Progress log: Alt+Q command search (#819); log table header fixed |
-| 2026-10-12 | trivial | Progress log: ribbon groups fit above their labels |
-| 2026-10-12 | trivial | Font list previews no longer grow memory (#848) |
-| 2026-10-12 | trivial | Progress log: section break keeps the selected text (#852) |
-| 2026-10-12 | trivial | Progress log: save prompt from the keyboard (#861) |
-| 2026-10-12 | trivial | Progress log: craft-fonts Simplified Chinese in documents |
-| 2026-10-12 | trivial | Progress log: symbol-font text drawn as Unicode symbols (#776) |
-| 2026-10-12 | trivial | Progress log: WMF and EMF pictures can be inserted (#802) |
-| 2026-10-11 | trivial | Progress log and shipped languages: Turkish interface completed, 2,325 entries (#774) |
-| 2026-10-12 | trivial | Progress log: Navigation heading truncation (#759) |
-| 2026-10-11 | trivial | Progress log: Reading Mode implementation |
-| 2026-10-12 | trivial | Progress log: new documents follow the system region (#838) |
-| 2026-10-11 | trivial | DOCX complex-script formatting inheritance fix and round-trip coverage |
-| 2026-10-11 | minor | Czech (`cs`) interface catalog added |
-| 2026-10-12 | trivial | Progress log: AutoCorrect replacement list follows the text's language (#835) |
-| 2026-10-11 | trivial | Progress log: German interface (#574) |
-| 2026-10-12 | trivial | Progress log: language-aware sorting and table numbers (#836, #837) |
-| 2026-10-12 | trivial | Progress log: Word 365 cover pages (#743) |
-| 2026-10-11 | trivial | Progress log: tables resize with the mouse (#217) |
-| 2026-10-11 | trivial | Progress log: Animation effects setting |
-| 2026-10-11 | trivial | Progress log: built-in file browser when the system file dialog is unavailable (#576) |
-| 2026-10-12 | trivial | Progress log: large-table scrolling (#811) |
-| 2026-10-11 | trivial | Progress log: security review fixes (temp files, exported link schemes) |
-| 2026-10-11 | trivial | Progress log: Find and Replace special characters and wildcards (#543) |
-| 2026-10-12 | minor | Desktop File > Print now discovers printers and submits PDF jobs through pinned craft-print with printer choice, copies, collation, duplex and grayscale; the upstream preview, ranges, parity and Print Markup remain available, along with browser printing and PDF export. Remaining print parity includes driver-specific tray/options and pages-per-sheet UI; physical printer fidelity needs hardware validation. |
-| 2026-10-11 | trivial | Progress log: Windows DX12 shaders compiled with FXC (#603) |
-| 2026-10-11 | trivial | Progress log: Insert › SmartArt (#497); catalog 429/451 → 437/458 (95.4%) |
-| 2026-10-11 | trivial | Progress log: Outline view (#493) |
-| 2026-10-11 | trivial | Progress log: vertical sections (#491) |
-| 2026-10-11 | trivial | Progress log: Paragraph dialog options, mirror indents (#512) |
-| 2026-10-11 | trivial | Progress log: Print Markup (#589) |
-| 2026-10-11 | trivial | Progress log: custom colours via More Colors… (#606) |
-| 2026-10-11 | trivial | Progress log: complex-script shaping (#604) |
-| 2026-10-11 | trivial | Progress log: unknown text extensions open as text (#569) |
-| 2026-10-11 | trivial | Progress log: drag-select by words/paragraphs/sentences (#549) |
-| 2026-10-12 | trivial | Progress log: selection bar in the left margin (#856) |
-| 2026-10-11 | trivial | Progress log: content controls (#381) |
-| 2026-10-11 | trivial | Progress log: Insert › Chart (#409); catalog 408/439 (92.9%) |
-| 2026-10-11 | trivial | Progress log: Line Numbers, Hyphenation, Language, Envelopes and Labels dialogs (#407) |
-| 2026-10-11 | trivial | Progress log: Alt Text pane, decorative objects, deeper accessibility checker (#386) |
-| 2026-10-11 | trivial | Progress log: Draw lasso, Add Pen, Ink to Shape, Ink Replay (#395); catalog 406/434 |
-| 2026-10-11 | trivial | Progress log: document grid (#391) |
-| 2026-10-11 | trivial | Progress log: text direction, Align Text and linked text boxes (#369) |
-| 2026-10-10 | trivial | Progress: Drawing Canvas (#344): insert, shapes/pictures/text boxes inside, Fit/Expand/Scale, DOCX `wpc:wpc`, turns and flips as a whole; catalog 404/434 |
-| 2026-10-11 | trivial | Quick Access Toolbar KeyTips and persisted enable/disable setting (#620) |
-| 2026-10-11 | trivial | Progress log: mail-merge recipients from .xlsx/.xlsm/.ods (#334) |
-| 2026-10-11 | trivial | Insert › Icons landed (#309): catalog 402/434 → 403/434 (92.9%) |
-| 2026-10-11 | trivial | Enclose Characters (#297): catalog 403/434 (92.9%) |
-| 2026-10-12 | minor | Progress log: opaque custom XML store preservation, with synthetic package regressions and explicit limits |
-| 2026-10-12 | minor | Preserve imported TOC ranges and retain #538 refresh/undo/save coverage on current main; readiness unchanged |
-| 2026-10-11 | trivial | Progress log: Customize Ribbon and the Quick Access Toolbar (#379) |
-| 2026-10-11 | trivial | Omitted `w:pPrDefault` stays omitted across saves; explicit empty/default properties and later spacing edits remain writable. Synthetic preservation checks only; readiness estimates unchanged |
-| 2026-10-11 | trivial | Progress log: Customize Keyboard (#368) |
-| 2026-10-12 | trivial | Native saves protect existing temporary-name entries and originals on pre-replacement failure; synthetic macOS evidence, explicit durability/platform limits; readiness unchanged |
-| 2026-10-11 | trivial | Word's common keyboard shortcuts (#330): 125 of ~250 |
-| 2026-10-11 | trivial | Collapsed duplicate rows left by parallel merges |
-| 2026-10-12 | trivial | Bulgarian interface (`bg`): progress log and shipped languages |
-| 2026-10-11 | trivial | Hungarian interface (`hu`): progress log and shipped languages |
-| 2026-10-11 | trivial | Turkish interface (`tr`): progress log and shipped languages |
-| 2026-10-12 | minor | Native drawing-level ink and its picture fallback survive DOCX edits and repeated saves; adapted to the current graphic writer; rendering and editing InkML remain missing |
-| 2026-10-11 | trivial | Progress log: eight more bibliography styles (#383) |
-| 2026-10-10 | trivial | Progress log: Draw tab ink (#307) |
-| 2026-10-10 | trivial | Draw Table and Eraser (#303): catalog 393/431 (91.2%) |
-| 2026-10-10 | trivial | Progress log: charts, SmartArt and OLE objects kept on DOCX save (#319) |
-| 2026-10-10 | trivial | Progress log: contour wrap (#354) |
-| 2026-10-10 | trivial | Progress log: free rotation and flips (#332) |
-| 2026-10-10 | trivial | Progress log: Windows OpenGL fallback without a DirectX 12 driver (#316) |
-| 2026-10-10 | minor | Password-protected .docx (#281): files encrypted with a password (agile encryption) open and save; File › Info › Encrypt with Password |
-| 2026-10-10 | minor | Relanded clipboard pane, table styles editor, Manage Styles, Asian typography (kinsoku), Group/Ungroup and Shape Effects (#264 #263 #270 #271 #267 #280): catalog 390/431 (90.5%) |
-| 2026-10-10 | minor | Polish interface and proofing landed: Localization 25% → 27%, Proofing 35% → 40% |
-| 2026-10-10 | minor | Merged main: catalog 384/430 (89.3%), 431 commands; Paste Special, Advanced Find, Column Selection, Style Inspector, custom table styles, gridlines, zoom buttons, touchpad scrolling, File Info, Serbian landed; mainstream 54→55% |
-| 2026-10-10 | minor | Readiness table with hours per audience; full number restored to the additive weighted sum (~47% → ~60%): method aligned with the standard, no new evidence; beta distance back to ~15 points and ~150–230 h |
-| 2026-10-10 | minor | Mainstream practitioner (~54%) and essentials user (~63%) numbers added; full number recomputed 60% → ~47% with the standard's discounts; beta distance now ~28 points and ~450–700 h; stage stays alpha |
-| 2026-10-10 | minor | Alpha gate checked (six core workflows pass); stage stays alpha |
-| 2026-10-10 | major | Full re-measure; restructured to the progress-docs standard (stage banner, two numbers, dimensions, languages, upcoming, progress log); parity tables moved to `docs/target-app-parity.md`, milestones to `docs/roadmap.md` |
-| 2026-10-09 | minor | Recently landed: RTL, Ukrainian and Brazilian Portuguese |
-| 2026-10-06 | major | First honest estimate: 88% catalog, ~62% real parity, alpha ~85% of the way |

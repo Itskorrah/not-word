@@ -1,8 +1,13 @@
-# WordCraft parity with Microsoft Word
+# Not Word parity with Microsoft Word
+
+> **Inherited assessment.** The dated measurements, percentages, effort estimates and issue/PR
+> numbers below come from the upstream WordCraft project. They are retained as engineering
+> context, not newly verified Not Word compatibility claims. Check current source/tests before
+> acting on an old gap; current fork work is recorded in [engineering-log.md](engineering-log.md).
 
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** trivial (table border drags with Ctrl and Alt, from the left edge and of selected cells, #711; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: all 12 bibliography styles, #383; previously trivial: formatting revisions landed, #41; previously trivial: Draw Table and Eraser landed, #303; previously minor: readiness table with hours per audience; full number back to the additive weighted sum, 60%; mainstream and essentials numbers added; alpha gate checked; previously major: full re-measure against Word for Mac 16.113.4; replaces the parity tables that lived in ROADMAP.md) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
-The authoritative assessment of how close WordCraft is to Microsoft Word. [`ROADMAP.md`](../ROADMAP.md)
+The inherited assessment of how close the upstream implementation was to Microsoft Word. [`ROADMAP.md`](../ROADMAP.md)
 summarizes it; [`gaps.md`](gaps.md) itemizes every shortfall; the deep checklists are
 [`file-format-parity.md`](file-format-parity.md), [`layout-parity.md`](layout-parity.md),
 [`typing-parity.md`](typing-parity.md), [`ui-parity.md`](ui-parity.md),
@@ -42,7 +47,7 @@ The generated ribbon checklist is [`parity-checklist.md`](parity-checklist.md).
 - Word's file formats, ribbon, dialogs and keyboard shortcuts from Microsoft's public documentation
   and our knowledge of Word for Windows and Mac (Microsoft 365). Windows-only features (PDF Reflow
   open, Works/WordPerfect import) are counted, because a Word user on Windows expects them.
-- WordCraft as it is on origin/main today: source (catalog, command registry, readers/writers,
+- Upstream WordCraft at the recorded origin/main snapshot: source (catalog, command registry, readers/writers,
   layout), tests, the i18n catalogs, open issues (62) and open PRs (~45), git history.
 - **Not done this pass:** opening real-world .docx files in both apps and comparing pages. There is
   no real-world corpus in the repo (Word-produced files can't be committed), and the disk budget
@@ -67,8 +72,6 @@ full parity for the area.
 | References (TOC, citations, bibliography, captions, index, TOA) | 5 | 65% | 60% | 12–20 | Working first versions, Zotero integration (#189), Zotero/Mendeley `ADDIN` fields round-trip. Caption, Index, Mark Entry, Custom TOC and Create/Edit Source dialogs; updates honour the TOC (`\o \u \t \f \n \p \h`), INDEX (`\c \e \h \r`), XE (`\b \i \t \r`) and SEQ/STYLEREF chapter switches (#402). All 12 of Word's bibliography styles (APA, MLA, Chicago, IEEE, Harvard, ISO 690 author-date and numerical, Turabian, GB/T 7714, GOST name and title sort, SIST02; #383); bibliography sources not yet in DOCX (#169 open). |
 | Review (proofing UI, comments, track changes, compare, protect) | 8 | 72% | 75% | 15–25 | Comment balloons, tracked insert/delete incl. paragraph marks (#244, #125), Compare / Combine with comparison settings (case, white space, formatting, tables, word or character level, #412), Restrict Editing pane with formatting and editing restrictions, exceptions for everyone and a password (#412). Formatting revisions (#41): kept in DOCX, recorded while tracking, accepted/rejected, "Formatted: …" balloons and change bars. Moves (#400): kept in DOCX, recorded on a tracked cut and paste, accepted/rejected at either end, green markup and "Moved from/to" balloons. Show revisions in balloons takes tracked deletions in the body out of the text into "Deleted: …" balloons (insertions stay inline, as in Word; deletions in headers, footers, notes and text boxes, and in print and PDF, stay inline). Missing: drag-and-drop moves, insert/delete balloons, Translate, Block Authors, modern comment threads/mentions. Lowered: these gaps are confirmed by source (no `rPrChange` anywhere). |
 | Proofing (spelling, grammar, thesaurus, languages) | 5 | 42% | (in Review) | 20–40 | English, Polish and Portuguese, chosen per run from its language (`w:lang`): English word list (Moby plus our supplement of modern words such as "desktop", #520) and rule-based grammar; Polish against the installed Hunspell dictionary through a Hunspell-style affix engine, Polish grammar rules and TeX hyphenation patterns (2026-10-10); Portuguese (pt-BR) against the installed VERO Hunspell dictionary — the affix engine reads its `FLAG UTF-8` flags, continuation classes and forbidden spellings — with accent-first suggestions, conservative grammar rules and TeX patterns (2026-10-12). Other languages are left unmarked. The custom dictionary persists across sessions (#40). Word ships 120 proofing tools for ~50 languages plus Editor (style refinements, similarity). Issues #25, #40, #100. |
-| Mailings | 2 | 70% | 70% | 6–10 | Mail merge from CSV, fields, rules (IF, SKIPIF, NEXT, NEXTIF, evaluated alike in preview and merge), fields in headers/footers (one section per letter), preview, envelopes, labels. Select Recipients takes a typed list or CSV (#247); no Excel/Outlook/Contacts data sources, no email merge. |
-| Pictures, shapes, text boxes, WordArt | 6 | 60% | 60% | 20–30 | Insert, crop, recolour, styles, floating placement like Word (#136), wrap (square/top-bottom/behind/front), text boxes edit and overflow (#46), VML text boxes (#242), free rotation and flips with a rotation handle (#332), WordArt: text fill (solid, gradient, none), outline, shadow, glow and reflection with our own styles, and Transform warps along arch, circle, wave, slant, inflate/deflate, chevron and triangle (other presets kept and drawn flat), connectors (straight, elbow, curved, arrowheads) glued to shapes' connection sites and re-routed when those move (#416). Missing: tight/through contour wrap, rotated text-box text, group (#267 open), shape effects, WordArt 3-D/bevel and editing text in its bent form, connector routing around shapes, Drawing Canvas, Icons, online pictures, screenshot. |
 | Mailings | 2 | 70% | 70% | 6–10 | Mail merge from CSV, fields, rules (IF, SKIPIF, NEXT, NEXTIF, evaluated alike in preview and merge), fields in headers/footers (one section per letter), preview, envelopes, labels. Select Recipients takes a typed list, CSV (#247) or a sheet of an Excel (.xlsx/.xlsm) or OpenDocument (.ods) workbook, with Select Table to pick the sheet (#334); no Outlook/Contacts/Access data sources, no email merge. |
 | Pictures, shapes, text boxes, WordArt | 6 | 60% | 60% | 20–30 | Insert, crop, recolour, styles, floating placement like Word (#136), wrap (square/top-bottom/behind/front), text boxes edit and overflow (#46), VML text boxes (#242), free rotation and flips with a rotation handle (#332), text-box text direction (90°, 270°, stacked), Align Text and linked text boxes (#369), Icons: an original icon library drawn in code with a searchable picker, inserted as pictures and recoloured with Icon Color (#309), Drawing Canvas with Fit/Expand/Scale and DOCX `wpc:wpc` (#344; members edited by command, not yet dragged inside the canvas; the canvas rotates and flips as a whole). Missing: tight/through contour wrap, text in a freely rotated text box, group (#267 open), shape effects, WordArt, connectors, online pictures, screenshot. |
 | Equations | 1 | 75% | 20% (with Draw) | 4–8 | OMML read/write, OpenType MATH layout, in-place editor with an Equation tab (#191). Missing: line breaking of long display equations, ink equations. |
@@ -179,7 +182,7 @@ Base ≈ **80%**; **80% × 0.787 ≈ 63%**.
   be fixed on main), **~11 right-to-left and language** reports (#19, #48, #63, #66, #199, #211,
   #215, #25, #40, #56, #100), **~24 feature requests or minor bugs** (catalog parity, macros,
   passwords, cloud, theming).
-- Reading: people are trying WordCraft as a Word replacement and report core-path problems more
+- Reading: people are trying Not Word as a Word replacement and report core-path problems more
   than niche ones; the install and stability discount is earned.
 
 ## By dimension

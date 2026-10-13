@@ -1,6 +1,7 @@
 # Control protocol
 
-Start the app with a control port: `wordcraft --control 7981` (or `WORDCRAFT_CONTROL_PORT=7981`).
+Start the app with a control port: `not-word --control 7981` (or `NOT_WORD_CONTROL_PORT=7981`;
+the legacy `WORDCRAFT_CONTROL_PORT` remains accepted).
 It listens on `127.0.0.1` only. Send one JSON object per line, with the window's key (see
 [Keys](#keys)); each gets one reply line:
 
@@ -19,12 +20,14 @@ Any local program (and possibly a web page) can reach a loopback port, so every 
 window's key. Once the port is bound, the app writes a random key (256 bits, as hex) to
 `<settings>/control-key.<instance>` and removes the file when the window closes; a new start
 writes a new key. `<settings>` is the folder that holds the preferences: on Linux
-`$XDG_CONFIG_HOME/wordcraft` (by default `~/.config/wordcraft`), on macOS
-`~/Library/Application Support/WordCraft`, on Windows `%APPDATA%\WordCraft`. `<instance>` is the
+`$XDG_CONFIG_HOME/not-word` (by default `~/.config/not-word`), on macOS
+`~/Library/Application Support/Not Word`, on Windows `%APPDATA%\NotWord`. `<instance>` is the
 Flatpak instance id inside Flatpak, and `local-<port>` otherwise. On Unix the file has mode 0600.
+The bridge can fall back to a legacy WordCraft key folder to connect to an older app; new app
+key files use the Not Word folder.
 
 ```sh
-cat ~/.config/wordcraft/control-key.local-7981   # Linux, outside Flatpak, port 7981
+cat ~/.config/not-word/control-key.local-7981   # Linux, outside Flatpak, port 7981
 ```
 
 - Send the key as top-level `"key"` with every request, or once per connection with
@@ -39,19 +42,18 @@ cat ~/.config/wordcraft/control-key.local-7981   # Linux, outside Flatpak, port 
   one limit: blank lines and bad JSON do not extend it. After an authorised request the
   connection may stay idle.
 
-`wordcraft-cli mcp --connect` takes the key from `WORDCRAFT_CONTROL_KEY`, or else from the key
-file for the port it connects to, and reads it again on every new connection (the app may have
-restarted). It sends the key only to loopback addresses (`127.0.0.0/8`, `::1`, `localhost`). For
+`not-word-cli mcp --connect` takes the key from `NOT_WORD_CONTROL_KEY` (then
+`WORDCRAFT_CONTROL_KEY` for compatibility), or else from the key file for the port it connects
+to. It reads the key again on every new connection because the app may have restarted. It sends the key only to loopback addresses (`127.0.0.0/8`, `::1`, `localhost`). For
 any other host it sends no key, says so, and the app refuses its requests: to drive an app on
 another machine, forward its port to `127.0.0.1` (for example `ssh -L 7981:127.0.0.1:7981 host`)
-and set `WORDCRAFT_CONTROL_KEY` to that app's key.
+and set `NOT_WORD_CONTROL_KEY` to that app's key.
 
 ## Methods
 
 | Method | Params | Result |
 |---|---|---|
-| `engine.execute` | `command`, `params` | the command's result (any id from `engine.commands`, including UI commands `ui.tab`, `ui.dialog`, `ui.backstage`, `ui.zotero.*` (see `docs/zotero.md`), `ui.language` (`{"value": "auto"|"en"|"zh-hans"|"zh-hant"|"ja"|"pt-br"|"es"|"uk"|"sr"|"sr-latn"|"et"|"tr"|"ru"|"pl"|"de"|"it"|"cs"|"hu"|"fr"}`), `ui.theme` (`{"value": "system"|"light"|"dark"}`; `system` follows the OS appearance, light when it reports none), `ui.interfaceSize` (`{"percent": 80–200}`, clamped; no value reads it; scales the interface on top of the system display scale, document zoom stays `view.zoom`), `ui.animations` (`{"value": "system"|"on"|"off"}`; no value reads it; `system` follows the system's animation setting, which the desktop app reads on Windows, macOS, Linux and the BSDs and the web app from `prefers-reduced-motion`, and means on where the system doesn't say; the result's `enabled` is what the setting comes to and `system` what the system reports, `null` when it doesn't say), `ui.fileBrowser` (desktop: `{"purpose": "document"|"picture"|"recipients"|"save"}` opens WordCraft's own file browser, for when the system file dialog doesn't show up, #576), `ui.caretAnimation` (`{"value": true|false}`; no value reads it; off, the caret jumps and blinks on and off instead of gliding and fading), `ui.startScreen` (`{"value": true|false}`; no value reads it; on, the default, the desktop and web apps start on File › Home when launched with nothing to open, #766)…) |
-| `engine.execute` | `command`, `params` | the command's result (any id from `engine.commands`, including UI commands `ui.tab`, `ui.dialog`, `ui.backstage`, `ui.zotero.*` (see `docs/zotero.md`), `ui.language` (`{"value": "auto"|"en"|"zh-hans"|"zh-hant"|"ja"|"pt-br"|"es"|"uk"|"sr"|"sr-latn"|"et"|"tr"|"ru"}`), `ui.theme` (`{"value": "system"|"light"|"dark"}`; `system` follows the OS appearance, light when it reports none), `ui.interfaceSize` (`{"percent": 80–200}`, clamped; no value reads it; scales the interface on top of the system display scale, document zoom stays `view.zoom`), `ui.animations` (`{"value": "system"|"on"|"off"}`; no value reads it; `system` follows the system's animation setting, which the desktop app reads on Windows, macOS, Linux and the BSDs and the web app from `prefers-reduced-motion`, and means on where the system doesn't say; the result's `enabled` is what the setting comes to and `system` what the system reports, `null` when it doesn't say), `ui.fileBrowser` (desktop: `{"purpose": "document"|"picture"|"recipients"|"save"}` opens WordCraft's own file browser, for when the system file dialog doesn't show up, #576), `ui.caretAnimation` (`{"value": true|false}`; no value reads it; off, the caret jumps and blinks on and off instead of gliding and fading), `ui.contextMenu` (opens the page's context menu below the caret, as Shift+F10 does)…) |
+| `engine.execute` | `command`, `params` | A registered engine or UI command result; use `engine.commands` for IDs, enablement and parameter documentation |
 | `engine.commands` | — | every command: id, label, location, shortcut, params, enabled |
 | `document.inspect` | `text?` | blocks (text, style, runs, lists, tables), parts, sections, selection, pages |
 | `ui.inspect` | — | UI state, view, dialog, window size, page rects on screen, caret, comment balloons (`balloons`: id + screen rect; `balloon`: the selected one), perf |
@@ -72,6 +74,28 @@ The `CharProps` and `ParaProps` that `format.set`, `para.set` and `styles.modify
 in [MCP server](mcp.md#character-and-paragraph-properties).
 
 Positions are `{"story": "body" | {"part": n}, "path": [block, row, cell, block, …], "off": byteOffset}`.
+
+### Interface preferences
+
+Call these through `engine.execute`. An omitted `value` reads the setting for commands that
+accept one. View the current command metadata rather than guessing values.
+
+| Command | Parameters / behavior |
+|---|---|
+| `ui.theme` | `value`: `system`, `light` or `dark`; system follows reported platform appearance |
+| `ui.accent` | `value`: `teal`, `blue`, `violet`, `rose` or `amber`; returns `{accent}` |
+| `ui.highContrast` | Boolean `value`; returns `{enabled}` |
+| `ui.workspace` | `value`: `writing`, `academic`, `professional`, `review`, `focus` or `custom`; returns `{workspace,layout,ribbonCollapsed}` |
+| `ui.interfaceSize` | `{"percent":80–200}`; scales UI independently from document zoom, omitted value reads |
+| `ui.animations` | `value`: `system`, `on` or `off`; system follows platform animation preference when reported |
+| `ui.caretAnimation` | Boolean `value`; disable caret gliding/fading |
+| `ui.startScreen` | Boolean `value`; determines start screen when no document is supplied |
+| `ui.language` | `{"value":"auto"}` or a supported language code; see [localisation](localization-parity.md) |
+| `ui.fileBrowser` | Native UI fallback browser with `purpose` of `document`, `picture`, `recipients` or `save` |
+| `ui.contextMenu` | Open the caret's context menu, as Shift+F10 does |
+
+Workspace arrangements and persistence are described in [customization.md](customization.md).
+Focus hides the previous layout temporarily; Exit Focus/Escape restores it.
 
 ### Native printing
 

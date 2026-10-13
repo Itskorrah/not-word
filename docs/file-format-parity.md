@@ -1,8 +1,13 @@
 # File-format parity with Microsoft Word
 
+> **Inherited assessment.** The dated measurements, percentages, effort estimates and issue/PR
+> numbers below come from the upstream WordCraft project. They are retained as engineering
+> context, not newly verified Not Word compatibility claims. Check current source/tests before
+> acting on an old gap; current fork work is recorded in [engineering-log.md](engineering-log.md).
+
 > **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-11 · **Change:** trivial (symbol-font text exported as Unicode, #776; previously trivial: text-box margins, Resize shape to fit text and freeforms in groups, #743; previously trivial: formatted paste from the system clipboard's HTML and RTF, #687; previously trivial: independent complex-script formatting inheritance and round-trip regression tests; previously trivial: import/export fixes for TXT, RTF, ODT, HTML and LaTeX, #433–#440; previously major: first version; every format Word reads or writes, measured from the readers and writers on origin/main) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4, plus Word for Windows' extra formats
 
-Every format Word opens or saves, what WordCraft does with it, and how it's tested. Fidelity is the
+Every format Word opens or saves, what Not Word does with it, and how it's tested. Fidelity is the
 share of a typical real-world file's content and formatting that survives (read: shows correctly;
 write: Word opens it showing the same). Summary in [`target-app-parity.md`](target-app-parity.md);
 the work items are in [`gaps.md`](gaps.md).
@@ -17,7 +22,7 @@ occasional.
 Weights are the share of a Word user's file traffic (estimate). Read/write: ✅ yes, 🟡 partial,
 ❌ no, — Word doesn't either.
 
-| Format | Weight | Word | WordCraft read | WordCraft write | Fidelity | Hours | How it's tested | Notes |
+| Format | Weight | Word | Not Word read | Not Word write | Fidelity | Hours | How it's tested | Notes |
 |---|---|---|---|---|---|---|---|---|
 | `.docx` Word Document (ECMA-376 Transitional) | 70% | R/W | ✅ | ✅ | ~65% | 70–110 | `crates/docx/tests` (roundtrip 34, fixtures 29, malformed 8, bidi 5, citations 5); synthetic fixtures only | Word opens our files. Untested on a real-world corpus. Details below |
 | `.docx` Strict Open XML | 1% | R/W | ✅ (namespace mapping in `xml.rs`) | ❌ | ~60% | 2–4 | one fixture | Writing Strict is rare |
@@ -62,12 +67,12 @@ Measured by grepping `crates/docx/src/read` and `src/write` for the OOXML elemen
 | DrawingML pictures inline and anchored (`wp:anchor`), wrap square/tight/through/top-bottom | ✅ | ✅ | Tight/through read and written with their `wp:wrapPolygon` (and `edited`); without one, a shape's outline is written (a picture's rectangle). `wrapText` (both sides, left, right, largest) read and written for square, tight and through |
 | WordArt text effects (`w14:textFill`, `w14:textOutline`, `w14:shadow`, `w14:glow`, `w14:reflection` in `w:rPr`) | ✅ | ✅ | Solid, gradient (linear) and no fill, outline colour/width, shadow, glow, reflection (#416); `w14:scene3d`/`w14:props3d` dropped |
 | DrawingML shapes and text boxes (`wps:`) | ✅ | ✅ | Preset geometries subset (callouts and flowchart boxes drawn as the nearest shape, #611); fill and outline from the shape or from the theme through its style references (`a:fillRef`/`a:lnRef`, #611), scheme, preset, system, scRGB and HSL colours; rotation and flips (`a:xfrm` `rot`/`flipH`/`flipV`, pictures and groups too, #332), the effect extent covering the rotated bounds; `wps:bodyPr` `vert` and `anchor`, internal margins (`lIns`/`tIns`/`rIns`/`bIns`) and Resize shape to fit text (`a:spAutoFit`: the text is never cut, #743), linked text boxes (`wps:txbx/@id`, `wps:linkedTxbx` `id`/`seq`, #369); text warps (`a:prstTxWarp` with adjust values, all 41 presets kept; unknown ones dropped), connectors (`straightConnector1`, `bentConnector2`–`5`, `curvedConnector2`–`5` read; 3-segment forms written) with glued ends (`wps:cNvCnPr` `a:stCxn`/`a:endCxn`; the glued shapes keep their drawing ids) and arrowheads (`a:headEnd`/`a:tailEnd`, drawn as triangles) (#416) |
-| Freeform shapes (`a:custGeom`: `a:moveTo`, `a:lnTo`, Bézier curves flattened) and WordCraft ink | ✅ | ✅ | Ink is written as a freeform `wps:wsp` in a `wp:anchor` (round caps, alpha for highlighter) and recognised again by its drawing name (#307). It is saved as a custom-geometry shape, not as Word's own ink (InkML in `w14:contentPart`), so Word shows WordCraft ink as a freeform shape it can move and recolour but not erase with its ink eraser; arcs drawn straight |
+| Freeform shapes (`a:custGeom`: `a:moveTo`, `a:lnTo`, Bézier curves flattened) and Not Word ink | ✅ | ✅ | Ink is written as a freeform `wps:wsp` in a `wp:anchor` (round caps, alpha for highlighter) and recognised again by its drawing name (#307). It is saved as a custom-geometry shape, not as Word's own ink (InkML in `w14:contentPart`), so Word shows Not Word ink as a freeform shape it can move and recolour but not erase with its ink eraser; arcs drawn straight |
 | Group shapes (`wpg:`), drawing canvas (`wpc:`) | ✅ | ✅ | Groups (#267) and canvases (#344) with pictures, shapes, freeforms (custom geometry, #743) and text boxes; nested groups flattened. The canvas schema has no transform, so a turned or flipped canvas keeps its turn in our own `wpc:extLst` extension (`urn:wordcraft:canvas-xfrm`; Word shows it unturned). Legacy VML canvases (`v:group editas="canvas"`) aren't read as canvases |
 | VML (`w:pict`, `v:shape`, `v:textbox`) | 🟡 | ❌ | Pictures, text boxes, lines (with arrowheads), rectangles and ovals, best effort (#242, #611) |
 | Alt text of drawings (`wp:docPr`/`cNvPr` `descr` and `title`, decorative mark `adec:decorative` from [MS-ODRAWXML]) and tables (`w:tblCaption`, `w:tblDescription`) | ✅ | ✅ | Pictures, shapes, text boxes, groups and their members, charts and SmartArt; OLE objects get theirs written into the kept XML (#386) |
-| Charts (`c:chart`), SmartArt (`dgm`) | ✅ | ✅ | Drawn from the chart's cached data and SmartArt's stored drawing (#292), with data labels (`c:showVal`). Charts made in WordCraft (Insert › Chart, #409) are written as a `c:chartSpace` part with their data as literals (`c:strLit`/`c:numLit`, no embedded workbook, so Word shows them and offers to create a workbook on Edit Data) and read back as editable; a chart part holding anything more (any chart from Word, or one re-saved by Word) stays read-only. Saved back as read, with every part they reach (chart, embedded workbook, colours and style; diagram data, layout, quick style, colours and drawing) and their content types; a moved or resized one keeps its new frame, and a pasted copy gets its own parts (#319). SmartArt made in WordCraft (#497) is written from its model: data (`dgm:dataModel` points and connections), our own layout, quick-style and colour definitions under the built-in layout identifiers, and a `dsp:drawing` with every shape placed; it reads back editable only when its data part is exactly what WordCraft writes |
-| OLE objects (`w:object`: embedded or linked files, ActiveX) | 🟡 | ✅ | Shown as their picture (VML or DrawingML); saved back whole with the embedding and picture parts, at the size, rotation and flips set in WordCraft (#319, #332). Can't be opened or edited |
+| Charts (`c:chart`), SmartArt (`dgm`) | ✅ | ✅ | Drawn from the chart's cached data and SmartArt's stored drawing (#292), with data labels (`c:showVal`). Charts made in Not Word (Insert › Chart, #409) are written as a `c:chartSpace` part with their data as literals (`c:strLit`/`c:numLit`, no embedded workbook, so Word shows them and offers to create a workbook on Edit Data) and read back as editable; a chart part holding anything more (any chart from Word, or one re-saved by Word) stays read-only. Saved back as read, with every part they reach (chart, embedded workbook, colours and style; diagram data, layout, quick style, colours and drawing) and their content types; a moved or resized one keeps its new frame, and a pasted copy gets its own parts (#319). SmartArt made in Not Word (#497) is written from its model: data (`dgm:dataModel` points and connections), our own layout, quick-style and colour definitions under the built-in layout identifiers, and a `dsp:drawing` with every shape placed; it reads back editable only when its data part is exactly what Not Word writes |
+| OLE objects (`w:object`: embedded or linked files, ActiveX) | 🟡 | ✅ | Shown as their picture (VML or DrawingML); saved back whole with the embedding and picture parts, at the size, rotation and flips set in Not Word (#319, #332). Can't be opened or edited |
 | Native Word ink (`w14:contentPart`, InkML) | 🟡 | 🟡 | Drawing-level ink kept opaque with its InkML part, relationship and content type; run-level `mc:AlternateContent` keeps the native branch and VML picture fallback. Shows the preview or a missing-picture box. Repeated saves, copies, resize, rotation and namespace aliases tested with original fixtures. No native stroke rendering, eraser, conversion or replay; direct run-level content parts and ink nested in groups/canvases remain unsupported |
 | 3D models | ❌ | ❌ | Dropped on read, not preserved on save |
 | Equations (OMML `m:oMath`) | ✅ | ✅ | #191; manual breaks (`m:brk`) and the settings' `m:mathPr` wrapping options (#326) |
@@ -83,13 +88,13 @@ Measured by grepping `crates/docx/src/read` and `src/write` for the OOXML elemen
 
 ## Opening files from the system
 
-Double-clicking a document, Open With, and making WordCraft the default app (#295). The installers
-register WordCraft for these types but never take over a default; File › Options › General has
-**Make WordCraft the default for Word documents…** where the system allows it.
+Double-clicking a document, Open With, and making Not Word the default app (#295). The installers
+register Not Word for these types but never take over a default; File › Options › General has
+**Make Not Word the default for Word documents…** where the system allows it.
 
 | Platform | Registered types | Default app | Notes |
 |---|---|---|---|
-| Windows (MSI) | `.docx` `.docm` `.dotx` `.dotm` `.doc` `.dot` `.rtf` `.odt`; `.md` `.txt` under Open With only | Options button opens Settings › Default apps on WordCraft's page | One ProgId per type, `OpenWithProgids`, Capabilities + `RegisteredApplications` (`packaging/windows/wordcraft.wxs`). Not yet tried on a real install |
+| Windows (MSI) | `.docx` `.docm` `.dotx` `.dotm` `.doc` `.dot` `.rtf` `.odt`; `.md` `.txt` under Open With only | Options button opens Settings › Default apps on Not Word's page | One ProgId per type, `OpenWithProgids`, Capabilities + `RegisteredApplications` (`packaging/windows/wordcraft.wxs`). Not yet tried on a real install |
 | Linux, BSD (deb, rpm, Flatpak, AppImage) | Word, ODT, RTF, Markdown, LaTeX, HTML, text (`MimeType=` in the desktop entry, AppStream `mediatype`) | Options button runs `xdg-mime default` for the Word, RTF and ODT types | Not from inside Flatpak (the sandbox can't change host defaults); a bare AppImage needs desktop integration first |
 | macOS | `CFBundleDocumentTypes` as Alternate handler (Word, ODT, RTF, Markdown, HTML, text) | Finder › Get Info › Open with › Change All (the Options page says so) | Apple events open the files (#27) |
 
@@ -104,12 +109,12 @@ application-defined defaults without assigning inferred Word spacing values to t
 Observed in Word for Mac 16.113.3 (26092714): three synthetic paragraph-default
 controls (omitted, explicitly empty, populated) and two reduced invoice controls retain
 identical text, glyph/image geometry, page sizes and embedded font-program hashes through
-two WordCraft save/reopen cycles. All fifteen variants open without repair warnings.
+two Not Word save/reopen cycles. All fifteen variants open without repair warnings.
 Word PDFs and measurements remain local under ignored `plan/word/`; they are not fixtures.
-These checks cover preservation on Word reopen, not WordCraft pagination parity.
+These checks cover preservation on Word reopen, not Not Word pagination parity.
 The [public OOXML reference](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.paragraphpropertiesdefault?view=openxml-3.0.1)
 describes omission as leaving paragraph defaults application-defined. Real-world corpus
-coverage and WordCraft layout matching remain separate gaps.
+coverage and Not Word layout matching remain separate gaps.
 ## Custom XML store preservation
 A reduced original bound-control DOCX loses its backing data, item properties and relationship
 on main, both without editing and after unrelated edits. Main's content-control support (#381)
@@ -125,6 +130,32 @@ references, missing parts, UTF-16 payloads, strict relationship types and reserv
 The bibliography names used by #532 are reserved; bibliography already loaded into the source
 model belongs to its writer. Word-derived files are not fixtures. No readiness estimate rises
 from these synthetic package checks, and native Word rendering/binding behavior remains untested.
+## Package integrity and foreign XML retention (Not Word)
+
+DOCX open now rejects unreadable, decompression-failed or CRC-invalid ZIP entries instead of
+returning an editable document after silently skipping a picture or opaque part. Exact duplicate
+part names, names differing only by ASCII case and aliases introduced by an ignored leading
+slash are rejected before the by-name ZIP index can hide content. Failures are ordinary import
+errors; the original file is left intact.
+
+Regression coverage in `crates/docx/src/package.rs` includes corrupted secondary parts,
+ambiguous/exact-duplicate names, central-directory offsets and size-limit overflow boundaries.
+`unknown_control_extensions_survive_edit_save_and_repeated_reopen` and
+`inherited_ignorable_control_extension_remains_locally_declared_after_saves` exercise foreign
+XML retained inside content-control storage over edited save/reopen cycles.
+
+Foreign element/attribute namespace names and payloads retain declared bindings. Supported
+markup-compatibility prefix/QName lists and inherited ignorable intent are rewritten with those
+bindings when opaque subtrees are extracted; required foreign namespaces remain required.
+Namespace URI, aggregate metadata and scoped lists have explicit bounds. This is preservation
+plumbing, not a new evaluator or general OOXML-fidelity claim: arbitrary custom QName-valued
+attribute semantics and the full range of markup-compatibility processing remain limited.
+
+Legacy DOC text decoding now retains UTF-16 pairs split between non-contiguous pieces and
+stops at the current story boundary. Inline-picture budget checks happen before copying or
+decompressing, and failed locations are cached within the existing bounded image count.
+These regressions are in `crates/docbin/src/tests.rs` and `media.rs`.
+
 ## Native save-path guarantees
 Native `io::save_path_with` serializes (and, for password-protected DOCX, encrypts) before creating an exclusively owned sibling temporary file. It writes and synchronizes that file, closes it, then replaces the destination. Failed preparation or replacement keeps the original bytes; cleanup removes only the save's temporary file, on a best-effort basis. Existing `<name>.tmp` files, directories and links are untouched. A new document gets the default mode (`0666` less the umask). When replacing an existing regular file, the Unix temporary file starts with mode `0600` and then takes the existing file's basic permissions. Serialization and format support are unchanged.
 Synthetic CLI cases and `engine/tests/safe_save.rs` cover occupied names, links, blocked replacement, missing directories, Save As session state, password-protected saves and original-file protection on macOS. Unit tests inject preparation errors and interleave two prepared saves. Independent saves use separate files; the last successful replacement wins. This is not document locking or conflict detection.
@@ -179,18 +210,18 @@ raise readiness estimates. No Word-derived files are fixtures.
 | 2026-10-11 | trivial | Word XML Document (Flat OPC) read and written, Word 2003 XML read (#548) |
 | 2026-10-11 | trivial | #534: DOCX indents in characters read and written; `.doc` first-line indents (`sprmPDxaLeft1`, its two-byte operand, and `sprmPDxaLeft1_80`), indents in characters (`sprmPDxc*`) and exact/at-least line spacing (LSPD) read correctly |
 | 2026-10-11 | trivial | List and page number formats: all ST_NumberFormat values round-trip; Chinese, Japanese and Korean counting, legal and digit formats, stems/branches, kana, hangul, enclosed and full-width numbers drawn; unknown values are decimal; .doc number format codes mapped (#534) |
-| 2026-10-11 | trivial | SmartArt made in WordCraft written as diagram parts (data, layout, quick style, colours, drawing) and read back editable (#497) |
+| 2026-10-11 | trivial | SmartArt made in Not Word written as diagram parts (data, layout, quick style, colours, drawing) and read back editable (#497) |
 | 2026-10-11 | trivial | Attached template (`w:attachedTemplate`, external relationship of the settings part) and `w:linkStyles` read and written in schema order; opening never reads the template (#377) |
 | 2026-10-11 | trivial | A bookmark (or comment range) ending after the document's last table keeps its end, in the table's last cell (#464); a field whose cached result is a picture (`INCLUDEPICTURE`) is kept as a range field around the picture, so the picture survives save; the linked file is never read (#465) |
 | 2026-10-11 | trivial | Print Markup: comments exported in PDFs, prints, page images and HTML/Markdown/text copies (#589) |
-| 2026-10-11 | trivial | Files with an extension WordCraft doesn't know open by content: text (`.m3u`/`.m3u8` playlists, logs…) through the encoding-detecting text import, misnamed Word/RTF files by signature, binary files refused with an error (#569) |
+| 2026-10-11 | trivial | Files with an extension Not Word doesn't know open by content: text (`.m3u`/`.m3u8` playlists, logs…) through the encoding-detecting text import, misnamed Word/RTF files by signature, binary files refused with an error (#569) |
 | 2026-10-11 | trivial | Restrict Editing: Word's legacy password hash (`w:cryptAlgorithmSid`, `w:hash`, `w:salt`, `w:cryptSpinCount`) verified per ECMA-376 Part 4 §14.8.1; unsupported hash forms refused (#412) |
 | 2026-10-11 | trivial | Restrict Editing: `w:documentProtection` (edit, formatting, password hash), `w:locked` styles and `w:permStart`/`w:permEnd` exceptions read and written (#412) |
 | 2026-10-12 | trivial | Word 365 cover page (#743): text-box internal margins and `a:spAutoFit` read and written; freeforms inside groups keep their custom geometry |
 | 2026-10-11 | trivial | DOCX diagrams (#611): shapes and connectors styled by the theme (`wps:style`) show their outline and fill; preset/system colours; VML lines and rectangles; lines run top-left to bottom-right as in DrawingML |
 | 2026-10-11 | trivial | WordArt text effects (`w14:` run properties), text warps (`a:prstTxWarp`) and connectors with glued ends read and written (#416) |
 | 2026-10-11 | trivial | Content controls read and written with their properties and nesting (#381) |
-| 2026-10-11 | trivial | Charts made in WordCraft written as chart parts and read back as editable (#409) |
+| 2026-10-11 | trivial | Charts made in Not Word written as chart parts and read back as editable (#409) |
 | 2026-10-11 | trivial | Hyphenation zone, words in capitals and consecutive-hyphen limit read and written (#407) |
 | 2026-10-11 | trivial | Alt text, titles and the decorative mark for every drawing, table captions and descriptions round-trip (#386) |
 | 2026-10-11 | trivial | Document grid (`w:docGrid`) and paragraph `w:snapToGrid` read and written (#391) |
@@ -208,7 +239,7 @@ raise readiness estimates. No Word-derived files are fixtures.
 | 2026-10-11 | minor | Native drawing-level ink and its picture fallback survive DOCX edits and repeated saves; rendering and editing InkML remain missing |
 | 2026-10-11 | trivial | Formatting revisions (`w:rPrChange`, `w:pPrChange`, table, row, cell, section and numbering changes) read and written (#41) |
 | 2026-10-11 | trivial | Omitted `w:pPrDefault` stays omitted across saves; explicit empty/default properties and later spacing edits remain writable. Synthetic preservation checks only; readiness estimates unchanged |
-| 2026-10-10 | trivial | OLE objects turned or flipped in WordCraft keep the turn on save (VML `rotation`/`flip`, DrawingML `a:xfrm` with the rotated effect extent); test counts refreshed |
+| 2026-10-10 | trivial | OLE objects turned or flipped in Not Word keep the turn on save (VML `rotation`/`flip`, DrawingML `a:xfrm` with the rotated effect extent); test counts refreshed |
 | 2026-10-11 | trivial | Section text direction read and written (#491) |
 | 2026-10-10 | trivial | Charts, SmartArt and OLE objects written back on save with their parts (#319); chart/SmartArt reading (#292) recorded |
 | 2026-10-10 | trivial | Footnote and endnote separators and continuation notices read and written (#352) |

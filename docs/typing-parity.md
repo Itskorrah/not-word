@@ -3,7 +3,7 @@
 > **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** trivial (Track Changes: Accept All after a tracked delete from a paragraph end keeps the next paragraph; Reject All after typing into an empty paragraph keeps it (#864); previously minor: Correct TWo INitial CApitals, cAPS LOCK and table-cell capitals, #544; previously trivial: complex-script caret and Backspace, #604; Move Paragraph Up/Down, Promote/Demote, Go Back and Alt+X keys, #343) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
 What Word does when you type, observed black-box (same keystrokes typed into Word and
-WordCraft, results read back paragraph by paragraph) and pinned by tests in
+Not Word, results read back paragraph by paragraph) and pinned by tests in
 `crates/engine/src/tests_typing.rs`. When typing behaviour changes, change it here and in the
 tests together. Line breaking and pagination are in [`layout-parity.md`](layout-parity.md); the
 overall picture is in [`target-app-parity.md`](target-app-parity.md).
@@ -156,13 +156,15 @@ Word.
 
 ## How to compare
 
-- WordCraft: the headless `ui_shot` example (no window, no focus) with `UI_SHOT_FULL=1` prints
+- Not Word: the headless `ui_shot` example (no window, no focus) with `UI_SHOT_FULL=1` prints
   the whole `document.inspect`; drive it with `ui.text` / `ui.key` lines so keys take the real
   input path.
-- Word: the machine is shared. Prefer AppleScript that doesn't take focus (open, read
-  paragraphs, export PDF). Keystroke runs steal focus and race the person at the keyboard: keep
-  them short, read the document back to verify, and ask first. Screenshots of Word's window only,
-  under `plan/word/screenshots/`.
+- If Microsoft Word is available on an authorised local reference machine, compare behavior
+  using synthetic documents and black-box UI observation. Do not assume a cloud machine has
+  Word installed, inspect proprietary implementation files or capture another user's desktop.
+  Capture only the reference app's window and keep observations local/ignored, for example
+  `plan/word/screenshots/`. Use public specifications and automated assertions where the
+  reference app is unavailable.
 
 ## Revision history
 

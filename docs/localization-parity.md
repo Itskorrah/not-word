@@ -1,5 +1,10 @@
 # Localization parity with Microsoft Word
 
+> **Inherited assessment.** The dated measurements, percentages, effort estimates and issue/PR
+> numbers below come from the upstream WordCraft project. They are retained as engineering
+> context, not newly verified Not Word compatibility claims. Check current source/tests before
+> acting on an old gap; current fork work is recorded in [engineering-log.md](engineering-log.md).
+
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-11 · **Change:** trivial (Turkish interface catalog completed, 2,325 entries, #774; previously minor: Turkish interface catalog completed, 2,325 entries, #774; previously minor: Hungarian interface added; previously trivial: sorting and table numbers follow the text's language, #836, #837; previously minor: Polish interface; Polish proofing — spelling, grammar, hyphenation — and a proofing language per run; previously minor: Turkish interface added; previously major: first version; catalogs measured from `crates/ui-egui/src/i18n`, Word's languages from its bundle listing) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
 Interface languages, script support and proofing per language. How translation works (catalog
@@ -17,7 +22,7 @@ native-speaker review (human).
 - **120 proofing tools** (`SharedSupport/Proofing Tools`): spellers for ~50 languages, grammar
   checkers for ~20, hyphenators for ~16, thesauri for ~20.
 
-## What WordCraft ships (measured)
+## What Not Word ships (measured)
 
 - **19 interface languages**: English plus `zh-hans`, `zh-hant`, `ja`, `uk`, `es`, `pt-br`,
   Serbian `sr`/`sr-latn` (#250), Estonian `et`, Turkish `tr`, Russian `ru`, Italian `it` (#594), German `de` (#574), Polish `pl`, Czech `cs`, Hungarian `hu`, French `fr` and Bulgarian `bg`. Catalogs have 2,057–2,454 entries
@@ -131,7 +136,7 @@ Where the region comes from:
   language on the web, and on Windows the home location (Settings › Time & language › Region)
   with the display language. Word follows Windows' regional format instead, so an en-US format
   set by someone living in Germany gives A4 and a decimal comma here; reading the regional format
-  needs Win32 calls that are `unsafe` in Rust, which WordCraft forbids.
+  needs Win32 calls that are `unsafe` in Rust, which Not Word forbids.
 
 Runs without preferences (`WORDCRAFT_NO_PREFS`) stay `en-US` unless `WORDCRAFT_REGION` is set, so
 agents and screenshots give the same result on every machine. The decimal separator belongs to
@@ -142,7 +147,7 @@ in any territory (`ja-PL` is `2.54 cm`), as CLDR's fallback to the language give
 
 Templates (Letter, Resume, Report) keep their own size. Not yet: Word's "Default paper size"
 preference of its own, and Word's locale-specific Normal margins (2,5 cm in some regions;
-WordCraft keeps 2,54 cm).
+Not Word keeps 2,54 cm).
 
 ## Shared work (not in the per-language hours)
 
