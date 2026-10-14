@@ -39,8 +39,8 @@
     </screenshot>
   </screenshots>
   <branding>
-    <color type="primary" scheme_preference="light">#1a837b</color>
-    <color type="primary" scheme_preference="dark">#0e5758</color>
+    <color type="primary" scheme_preference="light">#171717</color>
+    <color type="primary" scheme_preference="dark">#f8f8f8</color>
   </branding>
   <requires>
     <display_length compare="ge">760</display_length>

@@ -4,6 +4,28 @@ This log records concrete fork improvements and their validation. Keep it short,
 and useful to the next contributor. Documented or planned work is distinct from verified code;
 GitHub delivery requires remote evidence.
 
+## 14 October 2026 — approved original-B identity
+
+- Replaced the earlier N/teal artwork with the owner's selected original concept B: three
+  rounded writing strokes and a vertical insertion caret, followed once by the original bold
+  Not Word lettering. Frozen vector outlines preserve the selected proportions and spacing;
+  the approved source PNG and its SHA-256 are retained in `docs/brand/`.
+- Exported transparent graphite/off-white SVG and PNG lockups, standalone marks, and the
+  existing Windows ICO, macOS ICNS and Linux hicolor sizes. `docs/brand/exports.json` inventories
+  all 20 production exports with hashes. Repeated generation is deterministic; all ICO/ICNS
+  entries decode and small/large icons were visually inspected. Existing font/upstream credits
+  remain intact, with AI-assisted artwork provenance recorded in `ATTRIBUTION.md`.
+- Backstage and About embed the canonical lockup, cache its light/dark textures, and expose
+  accessible alternative text. Affected documentation screenshots, README badge colours,
+  AppStream brand colours and the macOS installer background now match the monochrome identity.
+- Verification: all six `cargo xtask ci` gates passed, with 1,960 workspace tests passed,
+  zero failed and five ignored. Native/CLI/offscreen builds and the Trunk WASM build passed.
+  CLI/DOCX/PDF/PNG/MCP and authenticated native editing smoke passed. Four final native logo
+  captures were inspected; packaging metadata/script/XML checks and local documentation links
+  passed. Chromium WebGL2 start/About captures confirmed both appearances, no page errors and
+  a favicon byte hash equal to the current original-B ICO. Linux tar staging retained the new icon bytes exactly; this used debug binaries,
+  not a production installer build. Windows/macOS installation and signing remain unverified.
+
 ## 14 October 2026 — independent fork documentation
 
 - Rebuilt the README around Not Word, maintained by Itskorrah, with upstream provenance and

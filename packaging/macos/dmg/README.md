@@ -7,7 +7,7 @@ Finder scripting on CI, nothing extra installed in the signing job).
 
 | File | What |
 |---|---|
-| `background.svg` | Source of the background: the app icon (`assets/app-icon/not-word.svg`, linked, not copied) on an original teal geometric field, beside a font-free geometric wordmark and installation arrow. No paper grain: noise doesn't compress, and this keeps `background.tiff` small. |
+| `background.svg` | Source of the background: the approved monochrome Not Word lockup (`docs/brand/not-word-logo.svg`, linked, not copied) on a light field with a black installation arrow. The canonical logo paths are used without altering their proportions. No fonts or decorative texture are required. |
 | `background.tiff` | The background at 1x (660 × 400 px, 72 dpi) and 2x (1320 × 800 px, 144 dpi) in one HiDPI TIFF (16-colour palette, Deflate, sRGB). Goes to `.background/background.tiff`. |
 | `dmg-layout.DS_Store` | Finder's view settings for the volume: window size, icon size 128, Not Word.app at (326, 205), `Applications` at (574, 205), and the background. Goes to `.DS_Store` in the image; named so it isn't mistaken for (or ignored like) a Finder-generated `.DS_Store`. |
 | `generate.py` | Writes `background.tiff` and `dmg-layout.DS_Store` from the SVG and the layout above. |
@@ -22,13 +22,14 @@ The DMG file name (`not-word-<version>-macos-<arch>.dmg`) still carries the vers
 ## Rules
 
 - **Finder draws the icon labels in black in light and dark mode** when a window has a background,
-  so the area under both icons stays light (Paper).
+  so the area under both icons stays light.
 - **Nothing goes inside the icon boxes:** artwork keeps 10 pt clear of each 128 pt icon box and of
   the label strip under it.
 
 ## Regenerate
 
-Edit `background.svg` (or the layout constants in `generate.py`), then run, on any OS:
+Regenerate the canonical brand assets first if the approved logo changes. Then edit
+`background.svg` (or the layout constants in `generate.py`) and run, on any OS:
 
 ```sh
 pip install 'pillow>=12' ds_store==1.3.3 mac_alias==2.2.3

@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "approvedSource": "docs/brand/not-word-approved-concept.png",
+  "approvedSourceSha256": "bdfb11a114b74029f6963b19972bbbe4a8bb1a520d856607bc90bd08a8277b33",
+  "foregroundColours": {
+    "lightBackground": "#171717",
+    "darkBackground": "#F5F5F5"
+  },
+  "exports": [
+    {
+      "path": "assets/app-icon/hicolor/128x128/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 2866,
+      "sha256": "4973af7f00729da298528877cce1fc2c9efad6bed59f2d13b303391fe724fdd1",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "path": "assets/app-icon/hicolor/16x16/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 429,
+      "sha256": "dc01abacfda7b9d86bf4433f9e372bc399ead84ec2ea9c3c90ccf8a7c0f90744",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "assets/app-icon/hicolor/24x24/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 629,
+      "sha256": "54d4d69b0455c197bd9735b6afe45d810f9b8143526c5ea6cfb48a3cda3a4e4a",
+      "width": 24,
+      "height": 24
+    },
+    {
+      "path": "assets/app-icon/hicolor/256x256/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 5767,
+      "sha256": "6fb0749d60813f46b65f81ce07cd474393bb4f1f66132f224a4e5eb512c8b835",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "path": "assets/app-icon/hicolor/32x32/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 759,
+      "sha256": "dfb75296152373b7189c0535f3dc1eca7e030518201713b3133337fb4b557790",
+      "width": 32,
+      "height": 32
+    },
+    {
+      "path": "assets/app-icon/hicolor/48x48/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 1144,
+      "sha256": "a4659ace84966b8996290c9c745b2c86ce5306cf5809b95aa45d9a4eff1caa2a",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "path": "assets/app-icon/hicolor/512x512/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 12788,
+      "sha256": "6b1600878d6923ec8e6452baf65d2e24a4a059567d294ad1228764faf8071911",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "path": "assets/app-icon/hicolor/64x64/apps/io.github.itskorrah.NotWord.png",
+      "mediaType": "image/png",
+      "bytes": 1433,
+      "sha256": "9d6456efe195eb9171b54bee698dacb73c42821b6b58026bc0c718546982d78b",
+      "width": 64,
+      "height": 64
+    },
+    {
+      "path": "assets/app-icon/hicolor/scalable/apps/io.github.itskorrah.NotWord.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 1097,
+      "sha256": "4460518c35af65071938151794d057d90cb0bd7cea937715e48ad4d2649a46f4"
+    },
+    {
+      "path": "assets/app-icon/not-word-1024.png",
+      "mediaType": "image/png",
+      "bytes": 27981,
+      "sha256": "c99192cadb6eaefb1909ce72680e30defc9a537dc69ec4252e21434b3e074cc7",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "path": "assets/app-icon/not-word-macos-512.png",
+      "mediaType": "image/png",
+      "bytes": 10759,
+      "sha256": "c0e86a311a67e6b1e7f328b0314a7cf0bca7bc6e6b00cfb7fe35c8361737eb84",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "path": "assets/app-icon/not-word.icns",
+      "mediaType": "image/x-icns",
+      "bytes": 63220,
+      "sha256": "08af48338670ffaec3613bb8a571acdec0ba394c3f3c74e07149d9a6c67b3e93"
+    },
+    {
+      "path": "assets/app-icon/not-word.ico",
+      "mediaType": "image/vnd.microsoft.icon",
+      "bytes": 14676,
+      "sha256": "3f204200418b9ffc054ace43601ea1850cebe77cd2eb799539ecacf471aaa14b"
+    },
+    {
+      "path": "assets/app-icon/not-word.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 1097,
+      "sha256": "4460518c35af65071938151794d057d90cb0bd7cea937715e48ad4d2649a46f4"
+    },
+    {
+      "path": "docs/brand/not-word-logo-white.png",
+      "mediaType": "image/png",
+      "bytes": 43279,
+      "sha256": "24cec051995a3c2442a67a7bb1c15cf98163b472e5935aff279b8d4ae840b5a3",
+      "width": 1900,
+      "height": 336
+    },
+    {
+      "path": "docs/brand/not-word-logo-white.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 3299,
+      "sha256": "d558a81b8af04f990650b3003522babbfd69720a213017a9574b8edcd68663b0"
+    },
+    {
+      "path": "docs/brand/not-word-logo.png",
+      "mediaType": "image/png",
+      "bytes": 44812,
+      "sha256": "7a54c59d900d355cdb05ec32190a4d8523200000a6b6a97e9c9a7d82aec9c4cb",
+      "width": 1900,
+      "height": 336
+    },
+    {
+      "path": "docs/brand/not-word-logo.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 3299,
+      "sha256": "e13d19d30777aacfcc49b05bfec93244c51da23f6825156de5e2b816f58817e5"
+    },
+    {
+      "path": "docs/brand/not-word-mark-white.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 1137,
+      "sha256": "18c5e89a923f114f6810c5adf4013a88e3f4e986e11df4c27cd58877f0934404"
+    },
+    {
+      "path": "docs/brand/not-word-mark.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 1137,
+      "sha256": "8c34e49d6929840badf536b0d112540b48f8bf713c0e9a2a5542df07cdff65fa"
+    }
+  ]
+}

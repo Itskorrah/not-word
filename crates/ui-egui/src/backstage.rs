@@ -64,7 +64,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             ui.add_space(if mac { 12.0 } else { 6.0 });
             ui.horizontal(|ui| {
                 ui.add_space(22.0);
-                ui.label(egui::RichText::new("NOT WORD").font(semibold(17.0)).color(t.accent_text));
+                crate::brand::lockup(ui, 154.0);
             });
             ui.add_space(14.0);
             for (id, label) in PAGES {

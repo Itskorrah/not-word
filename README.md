@@ -16,9 +16,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Itskorrah/not-word"><img alt="Source on GitHub" src="https://img.shields.io/badge/source-Itskorrah%2Fnot--word-315aee?style=flat-square"></a>
-  <a href="LICENSE-MIT"><img alt="License MIT or Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-178275?style=flat-square"></a>
-  <img alt="Development stage alpha" src="https://img.shields.io/badge/status-alpha-d97706?style=flat-square">
+  <a href="https://github.com/Itskorrah/not-word"><img alt="Source on GitHub" src="https://img.shields.io/badge/source-Itskorrah%2Fnot--word-171717?style=flat-square"></a>
+  <a href="LICENSE-MIT"><img alt="License MIT or Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-404040?style=flat-square"></a>
+  <img alt="Development stage alpha" src="https://img.shields.io/badge/status-alpha-626262?style=flat-square">
 </p>
 
 Not Word brings a familiar document workflow to an open, local application: write and format,

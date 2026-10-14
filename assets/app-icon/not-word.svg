@@ -1,19 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Not Word application icon</title>
-  <desc id="desc">An original white N with a teal ink diagonal and folded page corner on a dark slate tile.</desc>
-  <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#213b50"/>
-      <stop offset="1" stop-color="#101d2d"/>
-    </linearGradient>
-    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#65ead4"/>
-      <stop offset="1" stop-color="#3eacd9"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
-  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#7293a5" stroke-opacity=".2" stroke-width="2"/>
-  <path d="M130 368V144h58l136 155V144h58v224h-58L188 213v155z" fill="#f1f7fa"/>
-  <path d="M188 144l136 155v69L188 213z" fill="url(#ink)"/>
-  <path d="M343 105h39v39z" fill="#65ead4"/>
+  <desc id="desc">The approved Not Word mark: three writing capsules and a vertical insertion caret, in off-white on graphite.</desc>
+  <rect width="512" height="512" rx="112" fill="#171717"/>
+  <g transform="translate(84.55 366.7) scale(.135 -.135)" fill="#f5f5f5">
+    <path d="M2340 1610 c-15 -16 -30 -44 -34 -62 -10 -58 -6 -1430 5 -1471 25 -95 176 -104 215 -12 20 50 21 1459 0 1508 -18 45 -56 67 -112 67 -38 0 -51 -5 -74 -30z M56 1459 c-57 -45 -73 -126 -36 -187 39 -64 1 -62 955 -62 942 0 911 -2 952 56 46 65 36 135 -26 187 -33 27 -33 27 -925 27 -891 0 -893 0 -920 -21z M74 941 c-104 -47 -96 -201 13 -247 26 -11 143 -14 613 -14 628 0 619 -1 670 55 21 22 25 37 25 85 0 48 -4 63 -25 85 -51 56 -41 55 -672 55 -546 0 -586 -2 -624 -19z M70 412 c-48 -23 -72 -73 -67 -136 4 -42 10 -55 41 -83 36 -33 36 -33 208 -34 368 -3 572 3 600 17 87 45 86 173 -1 231 -34 23 -36 23 -390 23 -319 0 -360 -2 -391 -18z"/>
+  </g>
 </svg>

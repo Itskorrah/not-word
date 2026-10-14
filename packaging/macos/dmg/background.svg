@@ -1,22 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
   <title>Not Word installation background</title>
-  <desc>Original teal geometric artwork beside an arrow from the application to Applications. No fonts are required.</desc>
-  <defs><clipPath id="panel"><rect width="232" height="400"/></clipPath></defs>
-  <rect width="660" height="400" fill="#f5f3eb"/>
-  <g clip-path="url(#panel)">
-    <rect width="232" height="400" fill="#103c40"/>
-    <circle cx="22" cy="62" r="184" fill="#185354"/>
-    <circle cx="231" cy="361" r="158" fill="#1a837b"/>
-    <path d="M-22 347 244 81M-22 373 244 107" stroke="#55b7a1" stroke-width="3" opacity=".32"/>
-    <image href="../../../assets/app-icon/not-word.svg" x="30" y="125" width="172" height="172"/>
-    <!-- Original geometric NOT WORD wordmark, drawn as paths to avoid font dependencies. -->
-    <g transform="translate(33 45)" fill="none" stroke="#f5f3eb" stroke-width="3.6" stroke-linejoin="round">
-      <path d="M0 23V0L17 23V0M25 0H42V23H25ZM50 0H71M60.5 0V23"/>
-      <path d="M0 40 5 63 12 48 19 63 24 40M33 40H50V63H33ZM60 63V40H77V51H60M69 51 79 63M88 63V40H99L105 46V57L99 63Z"/>
-    </g>
-  </g>
-  <!-- Both Finder icon boxes and their labels stay light and unobstructed. -->
-  <path d="M418 205H477M463 190 478 205 463 220" fill="none" stroke="#1a837b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M258 332H634" stroke="#dedfd5"/>
-  <g fill="#1a837b"><circle cx="267" cy="356" r="4"/><circle cx="281" cy="356" r="4"/><circle cx="295" cy="356" r="4"/></g>
+  <desc>The approved monochrome Not Word wordmark on a light background, with an arrow from the application to Applications. No installed fonts are required.</desc>
+  <rect width="660" height="400" fill="#f8f8f8"/>
+  <!-- Link the canonical lockup so the installer follows the approved logo exactly. -->
+  <image href="../../../docs/brand/not-word-logo.svg" x="36" y="34" width="380" height="70" preserveAspectRatio="xMinYMid meet"/>
+  <path d="M36 122H624" fill="none" stroke="#dedede"/>
+  <!-- Finder draws both 128 pt app icons and their labels in this clear light area. -->
+  <path d="M418 205H477M463 190 478 205 463 220" fill="none" stroke="#171717" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 336H624" fill="none" stroke="#dedede"/>
 </svg>
